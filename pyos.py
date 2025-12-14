@@ -51,6 +51,16 @@ class speed:
     def until(a:int,b:int):
         c=a%b
         return c
+    
+    @njit(cache=True)
+    def sqr(a:int,b:int):
+        c=a**b
+        return c
+    
+    @njit(cache=True)
+    def root(a:int,b:int):
+        c=a**(1/b)
+        return c
 class pyos64:
     def __init__(self,tread):
         print("thank for :Pygame team! Linux team!\nPyOs it's running a application")
@@ -290,6 +300,10 @@ class pyos64:
         self.reg[any[2]]=speed.div(self.reg[any[0]],self.reg[any[1]])
     def mul(self,any):
         self.reg[any[2]]=speed.mul(self.reg[any[0]],self.reg[any[1]])
+    def sqr(self,any):
+        self.reg[any[2]]=speed.sqr(self.reg[any[0]],self.reg[any[1]])
+    def root(self,any):
+        self.reg[any[2]]=speed.root(self.reg[any[0]],self.reg[any[1]])
     def call(self, any):
         # push posição atual
         # print("aqui")
