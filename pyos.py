@@ -2,6 +2,7 @@
 from rich import print
 from random import randbytes,randint
 # from json import dumps, loads
+from lib import JA
 from time import time
 from pickle import dumps as upld,loads as dowld
 import pygame
@@ -61,6 +62,15 @@ class speed:
     def root(a:int,b:int):
         c=a**(1/b)
         return c
+
+def debuga(func):
+    def nfunc(self:"pyos64",any):
+        try:
+            func(self,any)
+        except:
+            print(self.__pos__)
+            print(any)
+    return nfunc
 class pyos64:
     def __init__(self,tread):
         print("thank for :Pygame team! Linux team!\nPyOs it's running a application")
@@ -83,6 +93,7 @@ class pyos64:
         self.__graf__=self.imagem_compose(self)
         self.__recursion__=[]
         self.__env__={}
+        self.__ui__=JA.boot(self)
     def __getstate__(self):
         current={
             "reg":self.reg,
@@ -227,6 +238,14 @@ class pyos64:
         return ".".join(self.__recursion__)
     def pss(self,any):
         pass
+    def UI(self,any):
+        atrr=any[0]
+        values=[self.reg[value] for value in any[1:]]
+        getattr(self.__ui__,atrr)(*values)
+    def script(self,any):
+        file=self.reg[any[0]]
+        self.__script__=JA.scripts(file)
+        self.__script__.make()
     def randint(self,any):
         self.reg[any[2]]=randint(self.reg[any[0]],self.reg[any[1]])
     def randbytes(self,any):
@@ -417,6 +436,7 @@ class pyos64:
         self.reg[any[0]].remove(self.reg[any[0]])
     def dict(self,any):
         self.reg[any[0]]={}
+    # @debuga
     def dict_vk(self,any):
         self.reg[any[0]][self.reg[any[1]]]=self.reg[any[2]]
     def dict_kr(self,any):
@@ -880,3 +900,5 @@ class pyos16: #primeira versão
             r,pont,fator=any
             self.__pos__=pont,
             self.reg[r]-=fator
+
+# print(pyos64.__dict__.keys())

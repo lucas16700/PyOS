@@ -1,5 +1,4 @@
-import json,pygame
-
+import re,pygame
 import pygame
 def primo(x):
     a=[2]
@@ -70,10 +69,9 @@ class Widget:
         "padding":0
     }
 
-    def __init__(self, style: dict,script: "scripts"):
+    def __init__(self, style: dict):
         self.style = self.DEFAULT_STYLE | style
         self.surface = None
-        self.script = script
         self.rect = pygame.Rect((0, 0), self.style["size"])
         self.dirty = True  # controla quando redesenhar
 
@@ -95,16 +93,14 @@ class Widget:
         self.update()
         self.rect.topleft = pos
         screen.blit(self.surface, pos)
-class scripts:
-    def __init__(self,obj:Widget|"UI.Button"|"UI.TextBox"|"UI.Box"):
-        self.ob=obj
+
     
 class UI:
     class Button(Widget):
         "botão simples"
-        def __init__(self, value="Button", style=None,script=None):
+        def __init__(self, value="Button", style=None):
             self.value = value
-            super().__init__(style or {},script or {})
+            super().__init__(style or {})
 
         def render(self):
             size = self.style["size"]
@@ -179,7 +175,79 @@ class UI:
             #ele.draw(self.surface,ele.style["position"])
         def __repr__(self):
             return f"<UI.TxtBox value={self.value.__repr__()}>"
+TOKEN_REGEX = re.compile(
+    r'''\s*(
+        [-+]?\d+            | # números
+        "(?:\\.|[^"])*"     | # strings
+        [()]                | # parênteses
+        [^\s()]+              # símbolos
+    )''',
+    re.VERBOSE
+)
 
+class parser:
+    def __init__(self,code):
+        self.code=code
+    def pre(self):
+        self.__tokenize__()
+        return self.__parse__()
+    def __tokenize__(self):
+        self.token= TOKEN_REGEX.findall(self.code)
+
+    def __parse__(self):
+        self.token
+        def parse_expr():
+            token = self.token.pop(0)
+
+            if token == '(':
+                lst = []
+                while self.token[0] != ')':
+                    lst.append(parse_expr())
+                self.token.pop(0)  # remove ')'
+                return lst
+
+            elif token.startswith('"'):
+                return token[1:-1]  # string sem aspas
+
+            elif token.isdigit():
+                return int(token)
+
+            else:
+                return token  # símbolo
+
+        ast = []
+        while self.token:
+            ast.append(parse_expr())
+        return ast
+
+class scripts:
+    def __init__(self,code:str):
+        with open(code,"r")as f:
+            self.ps=parser(f.read())
+        self.instru=self.ps.pre()
+    def make(self):
+        text=self.instru[0]
+        print(text)
+
+script_base="""(program
+    (target bloco)
+    (def hover (a b) 
+        (change color (255 255 255))
+        return 0
+    )
+    (event hover set hover)
+)
+(meta
+    (version 0)
+    (budleid (10 2 3))
+    (name "teste")
+)
+
+"""
+
+# teste=scripts(script_base)
+# teste.make()
+# exit()
 corpo_base={
     "body":
     { "bloco":
@@ -228,35 +296,70 @@ corpo_base={
             "atrr":{"size":(400,200),"border radius":50,"background":(70,50,80)},
             "type":"Box"
         }
-    },
-    "text":
-    {"basic_button":{
-        "hover":    ["change",("color",[255,255,255])],
-        "click":    ["change",("color",[100,100,100])],
-        "normal":   ["change",("color",[200,200,200])]
     }
 }
-}
 elements={}
-pygame.font.init()
-for key in corpo_base["body"]:
-    elements[key]=getattr(UI,corpo_base["body"][key]["type"])(corpo_base["body"][key]["value"],corpo_base["body"][key]["atrr"])
-    elements[key].update()
-print(elements)
+logo=pygame.image.load("lib/logo.png")
 
-pygame.init()
-ax=-1
+class boot:
+    def __init__(self,cpu):
+        self.tread=cpu
+        self.tread.reg
+    def init(self,size,ui):
+        pygame.init()
+        pygame.font.init()
+        self.window=pygame.display.set_mode(size)
+        self.elements={}
+        body=ui
+        print(body)
+        for key in body:
+            self.elements[key]=getattr(UI,body[key]["type"])(body[key]["value"],body[key]["atrr"])
+            self.elements[key].update()
+        x=size[0]/2-400
+        y=size[1]/2-400
+        self.window.blit(logo,(x,y))
+    def update(self):
+        pygame.display.update()
+    def event_manager(self):
+        events=[]
+        for event in pygame.event.get():
+            if event.type==pygame.QUIT:
+                return ["quit"]
+            events.append(event)
+    def draw_ui(self):
+        for key in self.elements:
+            self.elements[key].draw(self.window,self.elements[key].style["position"])
+    def ui_patch(self,key,value):
+        self.elements[key]=getattr(UI,value["body"][key]["type"])(value["body"][key]["value"],value["body"][key]["atrr"])
+        self.elements[key].update()
+    def ui_pop(self,key):
+        self.elements.pop(key)
+    
+# teste=boot((1200,800),corpo_base)
+# while True:
+#     teste.event_manager()
 
-tela=pygame.display.set_mode((800,600))
-while True :
-    for event in pygame.event.get():
-        if pygame.QUIT==event.type:
-            exit(pygame.quit())
-    tela.fill(0) 
+#     teste.draw_ui()
+
+#     teste.update()
+
+if __name__ == "__main__":
     for key in corpo_base["body"]:
+        elements[key]=getattr(UI,corpo_base["body"][key]["type"])(corpo_base["body"][key]["value"],corpo_base["body"][key]["atrr"])
         elements[key].update()
-        elements[key].draw(tela,(300,260))
-    
-    
-    # print(elements["butao"].style["border radius"],ax)
-    pygame.display.flip()
+    print(elements)
+    pygame.init()
+    pygame.font.init()
+    tela=pygame.display.set_mode((800,600))
+    while True :
+        for event in pygame.event.get():
+            if pygame.QUIT==event.type:
+                exit(pygame.quit())
+        tela.fill(0) 
+        for key in corpo_base["body"]:
+            elements[key].update()
+            elements[key].draw(tela,(300,260))
+        
+        
+        # print(elements["butao"].style["border radius"],ax)
+        pygame.display.flip()

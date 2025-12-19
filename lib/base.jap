@@ -1,0 +1,13 @@
+(program
+    (target block)
+    (def hover (int x int y) 
+        (change color (255 255 255))
+        return 0
+    )
+    (event hover set hover)
+)
+(meta
+    (version 0)
+    (budleid (10 2 3))
+    (name "teste")
+)

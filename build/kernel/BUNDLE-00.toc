@@ -1,1 +1,0 @@
-([('kernel', '/Users/lucaschaves/projeto_os/dist/kernel', 'EXECUTABLE')],)
