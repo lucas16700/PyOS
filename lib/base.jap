@@ -1,10 +1,20 @@
 (program
-    (target block)
-    (def hover (int x int y) 
-        (change color (255 255 255))
-        return 0
+    (TARGET set block)
+    (DEF hover (int x int y) 
+        (
+            (change color (255 255 255))
+        )
+        (RETURN 0)
     )
-    (event hover set hover)
+    (EVENT hover set hover)
+    (DEF quit (int a)
+        (
+            (halt)
+        )
+        (RETURN 0)
+    )
+    (halt)
+    (EVENT !event.quit set quit)
 )
 (meta
     (version 0)

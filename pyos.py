@@ -8,6 +8,8 @@ from pickle import dumps as upld,loads as dowld
 import pygame
 from numba import jit,njit
 import serializador
+if __name__ =="mojang":
+    from kernel import compilador as kernel
 print("pyos booted")
 def ps(*arg,**karg):
     pass
@@ -87,13 +89,15 @@ class pyos64:
         self.debug=False
         self.w_list=[]
         self.func={}
-        self.real=tread
+        self.real:kernel=tread
         self.__point__={}
         self.__states__={}
         self.__graf__=self.imagem_compose(self)
         self.__recursion__=[]
         self.__env__={}
         self.__ui__=JA.boot(self)
+        self.__var__={}
+        self.__events__={}
     def __getstate__(self):
         current={
             "reg":self.reg,
@@ -184,6 +188,7 @@ class pyos64:
             self.values={
                 "rax":0,#
                 "rgx":0,#
+                "a":"0",
                 "b":0,
                 "c":0,
                 "d":0,
@@ -242,10 +247,30 @@ class pyos64:
         atrr=any[0]
         values=[self.reg[value] for value in any[1:]]
         getattr(self.__ui__,atrr)(*values)
-    def script(self,any):
+    def load_script(self,any):
         file=self.reg[any[0]]
         self.__script__=JA.scripts(file)
         self.__script__.make()
+    def run_script(self,any):
+        copy=self.__pos__
+        self.__pos__=0
+        cp=self.func.copy()
+        self.func={}
+        while self.reg["x"]!=0:
+            # try:
+                op,items=self.real.item_parser(self.real.str2code(self.__script__.codes))
+                getattr(self,op)(items)
+                if op=="halt":
+                    print("erro")
+                self.__pos__+=1
+            # except Exception as e:
+            #     print(self.__pos__)
+            #     print("quebro")
+            #     break
+        self.__pos__=copy
+        print("funcs array",self.func)
+        self.__ui__.load_script(self.func.copy())
+        self.func=cp.copy()
     def randint(self,any):
         self.reg[any[2]]=randint(self.reg[any[0]],self.reg[any[1]])
     def randbytes(self,any):
@@ -254,7 +279,7 @@ class pyos64:
         # print(any[0].replace("\\n","\n"))
         temp=self.__pos__
         self.__pos__=0
-        self.real.run(any[0].replace("\\n","\n"),False)
+        self.real.run(any[0],False)
         self.__pos__=temp
     def point(self,any):
         self.__point__[any[0]]=self.__pos__
@@ -263,15 +288,19 @@ class pyos64:
     def brick(self,any):
         self.__pos__=self.__stack__.pop()
     def set(self,any):
-        # print("set any[0]",any[0])
         self.func[".".join(self.__recursion__+[any[1]])]=[fcode for fcode in self.__code__[self.__pos__+1:self.__pos__+int(any[0])+1]]
-        # print(" 6: ",self.__code__[6:])
-        # self.func[any[1]]=self.__pos__
-        # print("size",any[0])
-        # print("pos",self.__pos__)
-        # print(any[1],self.func[any[1]])
+        self.__var__[".".join(self.__recursion__+[any[1]])]=[any[2:]]
+        print("func_var",any[2:])
         self.__pos__+=any[0]
-        # print(self.pos)
+    def UI_event(self,any):
+        if any[0]=="set":
+            self.__events__[any[1]]=self.func[".".join(self.__recursion__+[any[2]])]
+        elif any[0]=="del":
+            self.__events__.pop(any[1])
+        elif any[0]=="cmb":
+            self.__events__[any[1]]=self.__events__[any[1]]+self.func[any[1]]
+    def widget(self,any):
+        pass
     def watch(self,any):
         self.w_list.append(any[0])
     def nwatch(self,any):
@@ -332,8 +361,11 @@ class pyos64:
         self.__pos__=0
         code_copy=self.__code__.copy()
         regs=self.reg.copy()
+        olds={kaka:self.reg[kaka] for kaka in self.__var__[self.reg[any[0]]]}
         env=".".join(self.reg[any[0]].split(".")[:-1])
         self.reg=self.__env__[env]
+        for kaka in olds:
+            self.reg[kaka]=olds[kaka] 
         self.__recursion__.append(self.reg[any[0]])
         self.__code__=self.func[self.reg[any[0]]]
         while self.reg["x"]!=0:
@@ -372,6 +404,9 @@ class pyos64:
         self.reg[any[0]] = self.__stack__.pop()
     def push(self, any):
         self.__stack__.append(self.reg[any[0]])
+    def pushm(self,any):
+        self.__stack__.append(self.reg[any[0]])
+        self.reg[any[0]]=self.reg[any[1]]
     def load(self, any):
         addr,reg = any
         # print(self.__mem__.get(addr,0))

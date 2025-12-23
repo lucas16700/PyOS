@@ -1,5 +1,5 @@
-import re,pygame
-import pygame
+import re,pygame,json
+from rich import print
 def primo(x):
     a=[2]
     for i in range(2,x+1):
@@ -56,6 +56,21 @@ def calcular_layout(
         line_height = max(line_height, h)
 
     return layout
+class layout:
+    def __init__(self,values:dict):
+        self.values=values
+        self.old=True
+    def turn(self):
+        self.old=False
+    def __dict__(self):
+        return self.values
+    def __repr__(self):
+        return str(self.values)
+    def __getitem__(self,__key):
+        return self.values[__key]
+    def __setitem__(self,__key,__value):
+        self.values[__key]=__value
+        self.old=True
 class Widget:
     "mae do widgets"
     DEFAULT_STYLE = {
@@ -68,22 +83,28 @@ class Widget:
         "position":[300,400],
         "padding":0
     }
-
     def __init__(self, style: dict):
-        self.style = self.DEFAULT_STYLE | style
+        self.style = layout(self.DEFAULT_STYLE | style)
+        print(self.style)
         self.surface = None
         self.rect = pygame.Rect((0, 0), self.style["size"])
         self.dirty = True  # controla quando redesenhar
-
+    def child(self,Super_id:str):
+        sid=Super_id.split(".")
+        if len(sid)==1:
+            return self.value[sid[0]]
+        elif len(sid)>=2:
+            return self.value[sid[0]].child(".".join(sid[1:]))
     def render(self):
         """Cada widget sobrescreve isso"""
         raise NotImplementedError
 
     def update(self):
         "atualiza a surface do widget"
-        if self.dirty:
-            self.dirty = False
-        self.render()
+        if self.style.old:
+            self.render()
+            self.style.turn()
+            print("updated")
     
     def action(self,type:str,values):
         self.script.act(type)(values)
@@ -164,7 +185,7 @@ class UI:
             for key in self.value:
                 ele:Widget=getattr(UI,self.value[key]["type"])(
                     self.value[key]["value"],
-                    self.style|self.value[key]["atrr"]
+                    self.style.values|self.value[key]["atrr"]
                 )
                 ele.update()
                 eles[key]=ele
@@ -184,7 +205,15 @@ TOKEN_REGEX = re.compile(
     )''',
     re.VERBOSE
 )
-
+def replacer(arg:str):
+    if type(arg)==str:
+        if "!key." in arg:
+            arg=arg.removeprefix("!key.")
+            return f'${getattr(pygame),"K_"+arg}'
+        elif "!event.":
+            arg=arg.removeprefix("!event.")
+            return f'${getattr(pygame),arg.upper()}'
+    return arg
 class parser:
     def __init__(self,code):
         self.code=code
@@ -219,7 +248,38 @@ class parser:
         while self.token:
             ast.append(parse_expr())
         return ast
-
+class __parser__:
+    def __init__(self,code:list[list|str|int]):
+        self.code=[]
+        for xcode in code:
+            self.code.append(getattr(self,xcode[0].upper())(xcode[1:]))
+        # print("code full:\n","\n".join(self.code),"\nend of full code")
+    def recall(self,code):
+        temp=[]
+        for xcode in code:
+            temp.append(getattr(self,xcode[0].upper())(xcode[1:]))
+        return "\n".join(temp)
+    def __str__(self):
+        return "\n".join(self.code)
+    def TARGET(self,values):
+        self.target=values[1]
+        # return f'mov "#{values[1]}" a\nwidget {values[0]} a'
+    def CHANGE(self,values):
+        # print("change used here")
+        return f'UI "change_style" "#{self.target}" "#{values[0]}"'
+    def EVENT(self,values):
+        return f'UI_event {values[1]} "#{values[0]}" "#{values[2]}"'
+    def HALT(self,values):
+        return "halt"
+    def DEF(self,values):
+        name,var,code,retur=values
+        print("code is :",code)
+        final_f=self.recall(code)+"\n"
+        # print("final_f",final_f)
+        sizes=final_f.count("\n")+1
+        starter=f'set ${sizes}'+f' "#{name}" '+" ".join(var)+"\n"
+        ender=f"ret {retur[1]}"
+        return starter+final_f+ender
 class scripts:
     def __init__(self,code:str):
         with open(code,"r")as f:
@@ -227,13 +287,14 @@ class scripts:
         self.instru=self.ps.pre()
     def make(self):
         text=self.instru[0]
-        print(text)
-
+        print(self.instru[0].pop(0))
+        self.codes=__parser__(text)
+        
 script_base="""(program
     (target bloco)
     (def hover (a b) 
         (change color (255 255 255))
-        return 0
+        (return 0)
     )
     (event hover set hover)
 )
@@ -244,13 +305,12 @@ script_base="""(program
 )
 
 """
-
+if __name__=="mojang":
+    from pyos import pyos64
 # teste=scripts(script_base)
 # teste.make()
 # exit()
-corpo_base={
-    "body":
-    { "bloco":
+corpo_base={ "bloco":
         {
             "value":
             {
@@ -297,17 +357,19 @@ corpo_base={
             "type":"Box"
         }
     }
-}
 elements={}
 logo=pygame.image.load("lib/logo.png")
-
+with open("corpo_base.json","w")as f:
+    json.dump(corpo_base,f)
 class boot:
     def __init__(self,cpu):
-        self.tread=cpu
+        self.tread:pyos64=cpu
         self.tread.reg
+        self.event_funcs={}
     def init(self,size,ui):
         pygame.init()
         pygame.font.init()
+        print(size)
         self.window=pygame.display.set_mode(size)
         self.elements={}
         body=ui
@@ -320,12 +382,22 @@ class boot:
         self.window.blit(logo,(x,y))
     def update(self):
         pygame.display.update()
+    def load_script(self,funcs):
+        for key in funcs:
+            self.event_funcs[key]=funcs[key]
+        print("script loaded",self.event_funcs)
+    def load_ui(self,file,output):
+        with open(file,"r")as f:
+            meta=json.load(f)
+        print("output",output)
+        self.tread.reg[output]=meta
     def event_manager(self):
-        events=[]
         for event in pygame.event.get():
-            if event.type==pygame.QUIT:
-                return ["quit"]
-            events.append(event)
+            tp= self.event_funcs.get(event.type,"")
+            if tp != "":
+                self.tread.call([tp])
+            
+    
     def draw_ui(self):
         for key in self.elements:
             self.elements[key].draw(self.window,self.elements[key].style["position"])
@@ -334,7 +406,9 @@ class boot:
         self.elements[key].update()
     def ui_pop(self,key):
         self.elements.pop(key)
-    
+    def sytle_change(self,obj,key,nvalue):
+        self.elements[obj].style[key]=nvalue
+        self.elements[obj].update()
 # teste=boot((1200,800),corpo_base)
 # while True:
 #     teste.event_manager()

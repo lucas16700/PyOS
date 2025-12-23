@@ -1,6 +1,7 @@
 import shlex
 from pympler import asizeof
 from sys import argv
+from lib.JA import parser as jpass
 from pickle import dumps , loads
 ideia="""mov $1 a
 mov "#hello world" b
@@ -92,9 +93,9 @@ class compilador:
             # print(tread.pos)
             # print(actin[tread.pos])
         for i in code[1:]:
-            if "#" in i:
-                ni=i.replace("#","")
-                items.append(ni)
+            if "r#" in i:
+                ni=i.replace("r#","")
+                items.append(jpass(ni).pre())
             elif "$" in i:
                 ni=i.replace("$","")
                 items.append(int(ni))
@@ -103,9 +104,25 @@ class compilador:
             elif "!" in i:
                 ni=i.replace("!","")
                 items.append(bool(ni))
+            elif "#" in i:
+                ni=i.replace("#","")
+                items.append(ni)
             else:
                 items.append(i)
         return op,items
+    def str2code(self,code:str):
+        code=str(code)
+        paciente=code.splitlines()
+        # print(paciente)
+        tratado=[]
+        for ic in paciente:
+            if ic and ic!="":
+                if ">" in ic:
+                    tratado.append("pss")
+                else:
+                # print("ic :",ic)
+                    tratado . append(ic)
+        return tratado
     def run(self,code:str,save=True):
         Ccode=[]
         tread=compilador.paleta[self.sig](self)
