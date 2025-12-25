@@ -156,7 +156,7 @@ Surgiu da ideia de fazer uma interface que seja manipulavel de forma conhecida d
 ```
 ### que vira :
 
-[algo idetico a isso](./demo_UI1.png)
+![algo idetico a isso](./demo_UI1.png)
 
 É possivel notar que os atribuitos de cada elemento são declarados em um dicionario `style`, com parametros comuns , como **size** ; **position** ; **color** ; **background** ; **border radius**
 
