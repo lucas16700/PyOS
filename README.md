@@ -1,6 +1,6 @@
 Sistema Operacional Baseado em python
 ====
-desenvolvido para performar programas em *asm* baseado em ISA virutal, como em um emulador , porem com aplicações praticas
+desenvolvido para performar programas em [*asm*](#atualmente-conta-com-as-seguinte-instruções) baseado em ISA virutal, como em um emulador , porem com aplicações praticas. E um script para automações , o [`JA Script`](#ja-script)
 
 ## atualmente conta com as seguinte instruções:
 
@@ -106,3 +106,63 @@ loop_p "#pontao"
 halt
 ```
 
+# Layout baseado em `JSON` + `CSS`
+
+Surgiu da ideia de fazer uma interface que seja manipulavel de forma conhecida dentro da programação, como `array` e `dicionarios`, apresentando sintaxe simples e intuitiva, com pequenas excessões.
+
+### Exemplo de UI
+
+```json
+{
+    'corpo': {
+        'value': '',
+        'style': {
+            'size': [400, 200], 
+            'border radius': 50, 
+            'background': [70, 50, 80, 100], 
+            'position': [300, 300]},
+        'type': 'Box'
+        ,'child': {
+            'butao1': {
+                'style': 
+                {'border radius': 15, 
+                'size': [100, 30], 
+                'color': [0, 0, 0], 
+                'background': [255, 255, 255]}, 
+                'type': 'Button', 
+                'value': 'pressione'
+                },
+            'blocos': {
+                'style': 
+                {'size': [300, 130], 
+                'border radius': 50, 
+                'background': [2, 50, 40], 
+                'position': [0, 0]},
+                'type': 'Box',
+                'value': '',
+                'child': {
+                    'butao1': {
+                        'style': 
+                        {'border radius': 15, 
+                        'size': [70, 60], 
+                        'color': [0, 0, 0], 
+                        'background': [255, 255, 255]}, 'type': 'Button', 
+                        'value': 'pressione'}
+                }
+            }
+        }
+    }
+}
+```
+### que vira :
+
+[algo idetico a isso](./demo_UI1.png)
+
+É possivel notar que os atribuitos de cada elemento são declarados em um dicionario `style`, com parametros comuns , como **size** ; **position** ; **color** ; **background** ; **border radius**
+
+É importante lembra que os objetos `herdam` as propriedades do `objeto pai`
+
+
+
+
+# JA Script
