@@ -58,10 +58,12 @@ def calcular_layout(
     return layout
 class layout:
     def __init__(self,values:dict):
-        self.values=values
+        self.values=values.copy()
         self.old=True
     def turn(self):
         self.old=False
+    def copy(self):
+        return layout(self.values.copy())
     def __dict__(self):
         return self.values
     def __repr__(self):
@@ -69,8 +71,81 @@ class layout:
     def __getitem__(self,__key):
         return self.values[__key]
     def __setitem__(self,__key,__value):
+        # print(self)
         self.values[__key]=__value
         self.old=True
+class Events:
+    def __init__(self,widget:"Widget"):
+        self.obj=widget
+        self.job:dict=JIT(widget.__events__).results
+    def __getitem__(self,__values):
+        __value,selfu=__values
+        if __value in self.job.keys():
+            self.job.get(__value)(selfu)
+class pre_build:
+    def change_style(self,__key,__value):
+        self.style[__key]=__value
+        # print(f"changed {__value}")
+    def change_type(self,__type):
+        getattr(UI,__type).__init__(self,self.value,self.style,self.child)
+def prebuild(fn):
+    def binder(*args, **kwargs):
+        # aqui args/kwargs são os dados do script
+        def executor(obj):
+            # aqui obj será seu widget real
+            return fn(obj, *args, **kwargs)
+        return executor
+    return binder
+class JIT:
+    def __init__(self,code:list):
+        temp={}
+        # print("code",code)
+        for key in code:
+            temps=code[key]["JIT"]
+            if temps:
+                temp[key]=self.compile(code[key]["script"])
+            
+        self.results={temper:temp[temper] for temper in temp}
+    
+    auto={
+        "change_style":prebuild(pre_build.change_style)
+    }
+    def compile(self,line:list):
+        intru=line[0]
+        parans=self.auto[intru](*line[1:])
+        return parans
+
+DEFAULT_EVENTS = {
+        "hover_enter": {
+            "script": ("change_style" ,"background", (100, 100, 100, 200)),
+            "JIT": True
+        },
+        "hover": {
+            "script": None,
+            "JIT": False
+        },
+        "hover_leave": {
+            "script": ("change_style" ,"background", (255, 255, 255, 100)),
+            "JIT": True
+        },
+        "click_in": {
+            "script": ("change_style" ,"background", (0, 255, 0, 100)),
+            "JIT": True
+        },
+        "click_out": {
+            "script": ("change_style" ,"background", (255, 0, 0, 100)),
+            "JIT": True
+        },
+        "focus": {
+            "script": None,
+            "JIT": False
+        },
+        "blur": {
+            "script": None,
+            "JIT": False
+        }
+    }
+    
 class Widget:
     "mae do widgets"
     DEFAULT_STYLE = {
@@ -80,46 +155,106 @@ class Widget:
         "border radius": 0,
         "font size": 16,
         "font name":"arial",
-        "position":[300,400],
-        "padding":0
+        "position":(0,0),
+        "padding":0,
     }
-    def __init__(self, style: dict):
-        self.style = layout(self.DEFAULT_STYLE | style)
-        print(self.style)
+    
+    def __init__(self, style: dict,events: dict=DEFAULT_EVENTS,childs:None|dict["Widget"]=None):
+        self.style = layout(self.DEFAULT_STYLE | style).copy()
+        # print("eventos",events)
+        self.__events__ = events
+        self.events=Events(self)
+        self.tags={
+            "hover":False
+        }
+        self.dad=""
         self.surface = None
         self.rect = pygame.Rect((0, 0), self.style["size"])
         self.dirty = True  # controla quando redesenhar
-    def child(self,Super_id:str):
-        sid=Super_id.split(".")
-        if len(sid)==1:
-            return self.value[sid[0]]
-        elif len(sid)>=2:
-            return self.value[sid[0]].child(".".join(sid[1:]))
+        self.child=childs
+        self.events_allow=False
     def render(self):
         """Cada widget sobrescreve isso"""
         raise NotImplementedError
-
+    def event_act(self,event):
+        if self.child:
+                for key in self.child:
+                    
+                    self.child[key].event_act(event)
+        if event.type==pygame.MOUSEMOTION:
+            
+            
+            
+        
+                # self.elements:dict[Widget|UI.Box]
+            
+            target:Widget=self
+            surf:pygame.Surface=target.surface
+            topl=target.style["position"].copy()
+            trect=surf.get_rect(topleft=topl)
+            if trect.collidepoint(event.pos) and not target.tags["hover"]:
+                self.tags["hover"]=True
+                event_final="hover_enter"
+            elif trect.collidepoint(event.pos) and target.tags["hover"]:
+                self.tags["hover"]=True
+                event_final="hover"
+            elif not trect.collidepoint(event.pos) and target.tags["hover"]:
+                self.tags["hover"]=False
+                event_final="hover_leave"
+            else:
+                return
+        
+            self.events[event_final,self]
+            self.render()
+        if event.type==pygame.MOUSEBUTTONDOWN:
+            
+            
+            
+        
+                # self.elements:dict[Widget|UI.Box]
+            
+            target:Widget=self
+            surf:pygame.Surface=target.surface
+            topl=target.style["position"].copy()
+            trect=surf.get_rect(topleft=topl)
+            if target.tags["hover"]:
+                event_final="click_in"
+            elif not target.tags["hover"]:
+                self.tags["hover"]=False
+                event_final="click_out"
+            
+            # print(event_final)
+            self.events[event_final,self]
+            self.render()
     def update(self):
         "atualiza a surface do widget"
+        self.events_allow=True
         if self.style.old:
             self.render()
             self.style.turn()
-            print("updated")
-    
-    def action(self,type:str,values):
-        self.script.act(type)(values)
-
-    def draw(self, screen, pos):
+            # print("updated")
+    def draw(self, screen:pygame.Surface, pos):
         "desenha em uma tela/surface"
         self.update()
         self.rect.topleft = pos
         screen.blit(self.surface, pos)
+        if self.child:
 
+            for key in self.child:
+                # print(f"key {key}",self.child[key].style["position"])
+                self.child[key].draw(screen,self.child[key].style["position"])
+    def make(self,childs):
+        # print(childs)
+        nwid={}
+        for key in childs:
+            tip=childs[key].pop("type")
+            nwid[key]=getattr(UI,tip)(**childs[key])
+        return nwid
     
 class UI:
     class Button(Widget):
         "botão simples"
-        def __init__(self, value="Button", style=None):
+        def __init__(self, value="Button", style=None,child=None):
             self.value = value
             super().__init__(style or {})
 
@@ -145,7 +280,7 @@ class UI:
             return f"<UI.Button value={self.value.__repr__()}>"
     class TextBox(Widget):
         "Caixa de texto simples"
-        def __init__(self, value="", style=None):
+        def __init__(self, value="", style=None,child=None):
             self.value = value
             super().__init__(style or {})
 
@@ -162,10 +297,15 @@ class UI:
             return f"<UI.TxtBox value={self.value.__repr__()}>"
     class Box(Widget):
         "Caixa de texto simples"
-        def __init__(self, value="", style=None):
+        def __init__(self, value="", style=None,child={}):
             self.value = value
-
-            super().__init__(style or {})
+            fc=self.make(child)
+            for i in fc:
+                fc[i].dad+="box"
+            super().__init__(style or {},childs=fc)
+            
+                # print(key,self.child[key].style["position"])
+            # print([{key:self.child[key].style["position"]} for key in self.child_layout])
 
         def render(self):
             size = self.style["size"]
@@ -182,20 +322,36 @@ class UI:
             )
             eles={}
             sizes={}
-            for key in self.value:
-                ele:Widget=getattr(UI,self.value[key]["type"])(
-                    self.value[key]["value"],
-                    self.style.values|self.value[key]["atrr"]
-                )
+            self.child_layout={}
+            for key in self.child:
+                ele:Widget=self.child[key]
                 ele.update()
                 eles[key]=ele
                 sizes[key]=ele.surface.get_size()
-            layout=calcular_layout(sizes,self.style["size"][0],self.style["padding"],self.style["padding"])
-            for key in layout:
-                eles[key].draw(self.surface,layout[key])
-            #ele.draw(self.surface,ele.style["position"])
+            self.child_layout=calcular_layout(sizes,self.style["size"][0],self.style["padding"],self.style["padding"])
+            for key in self.child_layout:
+                self.child[key].update()
+                # print(key,self.child_layout[key],self.child[key].style["position"])
+                cp=self.style["position"].copy()
+                cp[0]+=self.child_layout[key][0]
+                cp[1]+=self.child_layout[key][1]
+                self.child[key].style["position"]=cp
+            # print(self.child)
+            # for key in self.child:
+            #     ele:Widget=self.child[key]
+            #     ele.update()
+            #     eles[key]=ele
+            #     sizes[key]=ele.surface.get_size()
+            # self.child_layout=calcular_layout(sizes,self.style["size"][0],self.style["padding"],self.style["padding"])
+            # print(30*"#")
+            # for key in layout:
+                
+            #     self.child[key].style["position"][0]=self.style["position"][0]+layout[key][0]
+            #     self.child[key].style["position"][1]=self.style["position"][1]+layout[key][1]
+            # print(30*"#")
+                # eles[key].draw(self.surface,layout[key])
         def __repr__(self):
-            return f"<UI.TxtBox value={self.value.__repr__()}>"
+            return f"<UI.Box value={self.value.__repr__()}>"
 TOKEN_REGEX = re.compile(
     r'''\s*(
         [-+]?\d+            | # números
@@ -209,10 +365,11 @@ def replacer(arg:str):
     if type(arg)==str:
         if "!key." in arg:
             arg=arg.removeprefix("!key.")
-            return f'${getattr(pygame),"K_"+arg}'
-        elif "!event.":
+            return f'${getattr(pygame,"K_"+arg)}'
+        elif "!event." in arg:
+            # print("arg",arg)
             arg=arg.removeprefix("!event.")
-            return f'${getattr(pygame),arg.upper()}'
+            return f'${getattr(pygame,arg.upper())}'
     return arg
 class parser:
     def __init__(self,code):
@@ -252,28 +409,37 @@ class __parser__:
     def __init__(self,code:list[list|str|int]):
         self.code=[]
         for xcode in code:
-            self.code.append(getattr(self,xcode[0].upper())(xcode[1:]))
+            tempv=[replacer(fin) for fin in xcode[1:]]
+            self.code.append(getattr(self,xcode[0].upper())(tempv))
+        self.name="undefined"
         # print("code full:\n","\n".join(self.code),"\nend of full code")
     def recall(self,code):
         temp=[]
         for xcode in code:
-            temp.append(getattr(self,xcode[0].upper())(xcode[1:]))
+            tempv=[replacer(fin) for fin in xcode[1:]]
+            temp.append(getattr(self,xcode[0].upper())(tempv))
         return "\n".join(temp)
+    def name_set(self,name):
+        self.name=name
     def __str__(self):
+        # print(self.code)
         return "\n".join(self.code)
+    def __dict__(self):
+        return {"code":{self.code}}
     def TARGET(self,values):
         self.target=values[1]
+        return ""
         # return f'mov "#{values[1]}" a\nwidget {values[0]} a'
     def CHANGE(self,values):
         # print("change used here")
         return f'UI "change_style" "#{self.target}" "#{values[0]}"'
     def EVENT(self,values):
-        return f'UI_event {values[1]} "#{values[0]}" "#{values[2]}"'
+        return f'UI_event {values[1]} "{values[2]}" "${values[0]}"'
     def HALT(self,values):
         return "halt"
     def DEF(self,values):
         name,var,code,retur=values
-        print("code is :",code)
+        # print("code is :",code)
         final_f=self.recall(code)+"\n"
         # print("final_f",final_f)
         sizes=final_f.count("\n")+1
@@ -287,9 +453,11 @@ class scripts:
         self.instru=self.ps.pre()
     def make(self):
         text=self.instru[0]
-        print(self.instru[0].pop(0))
+        name=self.instru[0].pop(0)
         self.codes=__parser__(text)
-        
+        self.codes.name_set(name)
+    def __str__(self):
+        return str(self.codes)
 script_base="""(program
     (target bloco)
     (def hover (a b) 
@@ -311,49 +479,50 @@ if __name__=="mojang":
 # teste.make()
 # exit()
 corpo_base={ "bloco":
-        {
-            "value":
+        {"value":"",
+            "child":
             {
                 "buta1":
                 {
-                    "atrr":{"border radius":15,"size":(100,30),"color":(0,0,0),"background":(255,255,255)},
+                    "style":{"border radius":15,"size":(100,30),"color":(0,0,0),"background":(255,255,255)},
                     "type":"Button",
                     "value":"mojangao"
                 },"buta2":
                 {
-                    "atrr":{"border radius":15,"size":(50,40),"color":(0,0,0),"background":(255,255,255)},
+                    "style":{"border radius":15,"size":(50,40),"color":(0,0,0),"background":(255,255,255)},
                     "type":"Button",
                     "value":"EA"
                 },"buta3":
                 {
-                    "atrr":{"border radius":15,"size":(50,10),"color":(0,0,0),"background":(255,255,255)},
+                    "style":{"border radius":15,"size":(50,10),"color":(0,0,0),"background":(255,255,255)},
                     "type":"Button",
                     "value":"ubsoft"
                 },
-                "bloco":{
-                    "atrr":{"size":(300,130),"border radius":50,"background":(2,50,40)},
+                "blocos":{
+                    "style":{"size":(300,130),"border radius":50,"background":(2,50,40),"position":(0,0)},
                     "type":"Box",
-                    "value":
+                    "value":"",
+                    "child":
                         {"buta4":
                     {
-                        "atrr":{"border radius":15,"size":(70,60),"color":(0,0,0),"background":(255,255,255)},
+                        "style":{"border radius":15,"size":(70,60),"color":(0,0,0),"background":(255,255,255)},
                         "type":"Button",
                         "value":"nintendo"
                     },"buta5":
                     {
-                        "atrr":{"border radius":15,"size":(100,30),"color":(0,0,0),"background":(255,255,255)},
+                        "style":{"border radius":15,"size":(100,30),"color":(0,0,0),"background":(255,255,255)},
                         "type":"Button",
                         "value":"Rock Star"
                     },"buta6":
                     {
-                        "atrr":{"border radius":15,"size":(75,60),"color":(0,0,0),"background":(255,255,255)},
+                        "style":{"border radius":15,"size":(75,60),"color":(0,0,0),"background":(255,255,255)},
                         "type":"Button",
                         "value":"Steam"
                     },
                     }
                 }
             },
-            "atrr":{"size":(400,200),"border radius":50,"background":(70,50,80)},
+            "style":{"size":(400,200),"border radius":50,"background":(70,50,80,.5),"position":(300,300)},
             "type":"Box"
         }
     }
@@ -369,13 +538,17 @@ class boot:
     def init(self,size,ui):
         pygame.init()
         pygame.font.init()
+        self.clock=pygame.time.Clock()
+        self.clock.tick()
         print(size)
         self.window=pygame.display.set_mode(size)
         self.elements={}
         body=ui
         print(body)
+        self.tread.reg["x11"]=1
         for key in body:
-            self.elements[key]=getattr(UI,body[key]["type"])(body[key]["value"],body[key]["atrr"])
+            tip=body[key].pop("type")
+            self.elements[key]=getattr(UI,tip)(**body[key])
             self.elements[key].update()
         x=size[0]/2-400
         y=size[1]/2-400
@@ -385,24 +558,34 @@ class boot:
     def load_script(self,funcs):
         for key in funcs:
             self.event_funcs[key]=funcs[key]
-        print("script loaded",self.event_funcs)
+        # print("script loaded",self.event_funcs)
     def load_ui(self,file,output):
         with open(file,"r")as f:
             meta=json.load(f)
-        print("output",output)
+        # print("output ",output)
         self.tread.reg[output]=meta
     def event_manager(self):
+        pygame.display.set_caption(str(self.clock.get_fps()))
+        self.clock.tick()
         for event in pygame.event.get():
+            for key in self.elements:
+                    self.elements[key].event_act(event)
+                    # self.elements:dict[Widget|UI.Box]
+            if event.type==pygame.QUIT:
+                self.tread.reg["x11"]=0
             tp= self.event_funcs.get(event.type,"")
             if tp != "":
                 self.tread.call([tp])
-            
-    
+    def syscall(self,atrr,values):
+        getattr(pygame,atrr)(*values)
+    def fill(self,color):
+        self.window.fill(color)
     def draw_ui(self):
         for key in self.elements:
             self.elements[key].draw(self.window,self.elements[key].style["position"])
-    def ui_patch(self,key,value):
-        self.elements[key]=getattr(UI,value["body"][key]["type"])(value["body"][key]["value"],value["body"][key]["atrr"])
+    def ui_patch(self,key,value:dict):
+        tip=value.pop("type")
+        self.elements[key]=getattr(UI,tip)(**value)
         self.elements[key].update()
     def ui_pop(self,key):
         self.elements.pop(key)

@@ -101,6 +101,13 @@ class pyos64:
     def __getstate__(self):
         current={
             "reg":self.reg,
+            "mem":self.__mem__,
+            "states":self.__states__,
+            "var":self.__var__,
+            "recursion":self.__recursion__,
+            "graf":self.__graf__,
+            "ui":self.__ui__,
+            "events":self.__events__,
             "code":self.__code__,
             "stack":self.__stack__,
             "ZNCF":[self.ZF,self.NF,self.CF],
@@ -250,27 +257,31 @@ class pyos64:
     def load_script(self,any):
         file=self.reg[any[0]]
         self.__script__=JA.scripts(file)
+        # print(self.__script__.instru)
         self.__script__.make()
-    def run_script(self,any):
+        print(str(self.__script__))
         copy=self.__pos__
         self.__pos__=0
-        cp=self.func.copy()
-        self.func={}
+        code=self.__code__.copy()
+        self.__code__=self.real.str2code(self.__script__)
+        print("the asm is",self.__code__)
         while self.reg["x"]!=0:
             # try:
-                op,items=self.real.item_parser(self.real.str2code(self.__script__.codes))
+                op,items=self.__code__[self.__pos__]
                 getattr(self,op)(items)
                 if op=="halt":
-                    print("erro")
+                    print("halted on line",self.__pos__)
+                    break
                 self.__pos__+=1
             # except Exception as e:
             #     print(self.__pos__)
             #     print("quebro")
             #     break
+        self.reg["x"]=1
         self.__pos__=copy
-        print("funcs array",self.func)
-        self.__ui__.load_script(self.func.copy())
-        self.func=cp.copy()
+        # print("funcs array",self.func)
+        self.__code__=code
+        
     def randint(self,any):
         self.reg[any[2]]=randint(self.reg[any[0]],self.reg[any[1]])
     def randbytes(self,any):
@@ -287,18 +298,19 @@ class pyos64:
         self.__pos__=self.__point__[any[0]]
     def brick(self,any):
         self.__pos__=self.__stack__.pop()
+    def compile_script(self,any):
+        with open(any[0],"w")as f:
+            f.write(str(self.__script__.codes))
     def set(self,any):
         self.func[".".join(self.__recursion__+[any[1]])]=[fcode for fcode in self.__code__[self.__pos__+1:self.__pos__+int(any[0])+1]]
         self.__var__[".".join(self.__recursion__+[any[1]])]=[any[2:]]
-        print("func_var",any[2:])
+        print("func defined, name",any[1],"var",any[2:])
         self.__pos__+=any[0]
     def UI_event(self,any):
+        print("ui event seted",any)
         if any[0]=="set":
-            self.__events__[any[1]]=self.func[".".join(self.__recursion__+[any[2]])]
-        elif any[0]=="del":
-            self.__events__.pop(any[1])
-        elif any[0]=="cmb":
-            self.__events__[any[1]]=self.__events__[any[1]]+self.func[any[1]]
+            self.__events__[any[2]]=any[1]
+            self.__ui__.load_script(self.__events__)
     def widget(self,any):
         pass
     def watch(self,any):
@@ -361,11 +373,7 @@ class pyos64:
         self.__pos__=0
         code_copy=self.__code__.copy()
         regs=self.reg.copy()
-        olds={kaka:self.reg[kaka] for kaka in self.__var__[self.reg[any[0]]]}
-        env=".".join(self.reg[any[0]].split(".")[:-1])
-        self.reg=self.__env__[env]
-        for kaka in olds:
-            self.reg[kaka]=olds[kaka] 
+
         self.__recursion__.append(self.reg[any[0]])
         self.__code__=self.func[self.reg[any[0]]]
         while self.reg["x"]!=0:
@@ -497,6 +505,8 @@ class pyos64:
                 self.running=0
             self.event_response={pygame.QUIT:quita}
             self.surfs:dict[pygame.Surface]={}
+        def __getstate__(self):
+            return {}
         @property
         def reg(self):
             return self.real.reg

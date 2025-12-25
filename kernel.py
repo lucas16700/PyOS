@@ -2,7 +2,7 @@ import shlex
 from pympler import asizeof
 from sys import argv
 from lib.JA import parser as jpass
-from pickle import dumps , loads
+# from pickle import dumps , loads
 ideia="""mov $1 a
 mov "#hello world" b
 syscall
@@ -27,6 +27,7 @@ class compilador:
     #         "div":pyos.div,
     #     }
     # }
+    
     paleta={
         b"pyos16":pyos16,
         b"pyos64":pyos64
@@ -98,7 +99,11 @@ class compilador:
                 items.append(jpass(ni).pre())
             elif "$" in i:
                 ni=i.replace("$","")
-                items.append(int(ni))
+                print(i)
+                try:
+                    items.append(int(ni))
+                except:
+                    items.append(ni)
                 # print("used")
             
             elif "!" in i:
@@ -122,10 +127,10 @@ class compilador:
                 else:
                 # print("ic :",ic)
                     tratado . append(ic)
-        return tratado
+        return [self.item_parser(shlex.split(line)) for line in tratado]
     def run(self,code:str,save=True):
         Ccode=[]
-        tread=compilador.paleta[self.sig](self)
+        self.cpu=compilador.paleta[self.sig](self)
         paciente=code.splitlines()
         # print(paciente)
         tratado=[]
@@ -136,9 +141,9 @@ class compilador:
                 else:
                 # print("ic :",ic)
                     tratado . append(ic)
-        tread.__code__=[self.item_parser(shlex.split(line)) for line in tratado]
+        self.cpu.__code__=[self.item_parser(shlex.split(line)) for line in tratado]
         
-        while tread.reg["x"]:
+        while self.cpu.reg["x"]:
             # print(actin)
             # print(actin[1:])
             # items=[]
@@ -168,18 +173,18 @@ class compilador:
             #         print(f"## watch point triggered @ addr {items[-1]} ##")
             #         print(f"OLD : {tread.reg[items[-1]]}")
             # print(tread.__code__[tread.__pos__])
-            op,items=tread.__code__[tread.__pos__]
-            getattr(tread,op)(items)
+            op,items=self.cpu.__code__[self.cpu.__pos__]
+            getattr(self.cpu,op)(items)
             # if len(items)>=1:
             #     if items[-1] in tread.w_list:
             #         print(f"NEW : {tread.reg[items[-1]]}")
             # print(tread.pos)
-            tread.__pos__+=1
+            self.cpu.__pos__+=1
         # print(tread.reg)
-        self.reg=tread.cpu_state=tread
+        self.reg=self.cpu.cpu_state=self.cpu
         if save:
             # print(tread.func)
-            return tread.__code__,tread.func
+            return self.cpu.__code__,self.cpu.func
     def write(self,save,func):
         app=b""
         code=[]
@@ -426,6 +431,7 @@ if ".bin" in argv[1]:
 else:
     with open(argv[1],"r")as f:
         app=teste.run(f.read())
+print(asizeof.asizeof(teste))
 #depois ....
 # binario=teste.write(*projeto)
 # print(binario)
