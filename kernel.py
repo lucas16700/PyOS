@@ -1,4 +1,4 @@
-import shlex
+import shlex,asyncio
 from pympler import asizeof
 from sys import argv
 from lib.JA import parser as jpass
@@ -128,7 +128,7 @@ class compilador:
                 # print("ic :",ic)
                     tratado . append(ic)
         return [self.item_parser(shlex.split(line)) for line in tratado]
-    def run(self,code:str,save=True):
+    async def run(self,code:str,save=True):
         Ccode=[]
         self.cpu=compilador.paleta[self.sig](self)
         paciente=code.splitlines()
@@ -174,7 +174,7 @@ class compilador:
             #         print(f"OLD : {tread.reg[items[-1]]}")
             # print(tread.__code__[tread.__pos__])
             op,items=self.cpu.__code__[self.cpu.__pos__]
-            getattr(self.cpu,op)(items)
+            await getattr(self.cpu,op)(items)
             # if len(items)>=1:
             #     if items[-1] in tread.w_list:
             #         print(f"NEW : {tread.reg[items[-1]]}")
@@ -423,15 +423,17 @@ class compilador:
             getattr(tread,bin[tread.__pos__][0])(items)
             tread.__pos__+=1
         self.reg=tread.reg
-teste= compilador("codigo")
-if ".bin" in argv[1]:
-    with open(argv[1],"rb")as f:
-        app=teste.read(f.read())
-        teste.start(*app)
-else:
-    with open(argv[1],"r")as f:
-        app=teste.run(f.read())
-print(asizeof.asizeof(teste))
+if __name__ == "__main__":
+    teste= compilador("codigo")
+    if ".bin" in argv[1]:
+        with open(argv[1],"rb")as f:
+            app=teste.read(f.read())
+            teste.start(*app)
+    else:
+        with open(argv[1],"r")as f:
+            asyncio.run(teste.run(f.read()))
+    print(asizeof.asizeof(teste))
+
 #depois ....
 # binario=teste.write(*projeto)
 # print(binario)

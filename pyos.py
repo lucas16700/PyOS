@@ -3,11 +3,12 @@ from rich import print
 from random import randbytes,randint
 # from json import dumps, loads
 from lib import JA
+from lib.wprotoc import server,client
 from time import time
 from pickle import dumps as upld,loads as dowld
 import pygame
 from numba import jit,njit
-import serializador
+import serializador,asyncio
 if __name__ =="mojang":
     from kernel import compilador as kernel
 print("pyos booted")
@@ -281,7 +282,9 @@ class pyos64:
         self.__pos__=copy
         # print("funcs array",self.func)
         self.__code__=code
-        
+    class socket_service:
+        def __init__(self,tread:"pyos64",mode):
+            self.tread=tread
     def randint(self,any):
         self.reg[any[2]]=randint(self.reg[any[0]],self.reg[any[1]])
     def randbytes(self,any):

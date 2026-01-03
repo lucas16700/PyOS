@@ -478,54 +478,94 @@ if __name__=="mojang":
 # teste=scripts(script_base)
 # teste.make()
 # exit()
-corpo_base={ "bloco":
-        {"value":"",
-            "child":
-            {
-                "buta1":
-                {
-                    "style":{"border radius":15,"size":(100,30),"color":(0,0,0),"background":(255,255,255)},
-                    "type":"Button",
-                    "value":"mojangao"
-                },"buta2":
-                {
-                    "style":{"border radius":15,"size":(50,40),"color":(0,0,0),"background":(255,255,255)},
-                    "type":"Button",
-                    "value":"EA"
-                },"buta3":
-                {
-                    "style":{"border radius":15,"size":(50,10),"color":(0,0,0),"background":(255,255,255)},
-                    "type":"Button",
-                    "value":"ubsoft"
+# corpo_base={ "bloco":
+#         {"value":"",
+#             "child":
+#             {
+#                 "buta1":
+#                 {
+#                     "style":{"border radius":15,"size":(100,30),"color":(0,0,0),"background":(255,255,255)},
+#                     "type":"Button",
+#                     "value":"mojangao"
+#                 },"buta2":
+#                 {
+#                     "style":{"border radius":15,"size":(50,40),"color":(0,0,0),"background":(255,255,255)},
+#                     "type":"Button",
+#                     "value":"EA"
+#                 },"buta3":
+#                 {
+#                     "style":{"border radius":15,"size":(50,10),"color":(0,0,0),"background":(255,255,255)},
+#                     "type":"Button",
+#                     "value":"ubsoft"
+#                 },
+#                 "blocos":{
+#                     "style":{"size":(300,130),"border radius":50,"background":(2,50,40),"position":(0,0)},
+#                     "type":"Box",
+#                     "value":"",
+#                     "child":
+#                         {"buta4":
+#                     {
+#                         "style":{"border radius":15,"size":(70,60),"color":(0,0,0),"background":(255,255,255)},
+#                         "type":"Button",
+#                         "value":"nintendo"
+#                     },"buta5":
+#                     {
+#                         "style":{"border radius":15,"size":(100,30),"color":(0,0,0),"background":(255,255,255)},
+#                         "type":"Button",
+#                         "value":"Rock Star"
+#                     },"buta6":
+#                     {
+#                         "style":{"border radius":15,"size":(75,60),"color":(0,0,0),"background":(255,255,255)},
+#                         "type":"Button",
+#                         "value":"Steam"
+#                     },
+#                     }
+#                 }
+#             },
+#             "style":{"size":(400,200),"border radius":50,"background":(70,50,80,.5),"position":(300,300)},
+#             "type":"Box"
+#         }
+#     }
+corpo_base={
+    'corpo': {
+        'value': '',
+        'style': {
+            'size': [400, 200], 
+            'border radius': 50, 
+            'background': [70, 50, 80, 100], 
+            'position': [300, 300]},
+        'type': 'Box'
+        ,'child': {
+            'butao1': {
+                'style': 
+                {'border radius': 15, 
+                'size': [100, 30], 
+                'color': [0, 0, 0], 
+                'background': [255, 255, 255]}, 
+                'type': 'Button', 
+                'value': 'pressione'
                 },
-                "blocos":{
-                    "style":{"size":(300,130),"border radius":50,"background":(2,50,40),"position":(0,0)},
-                    "type":"Box",
-                    "value":"",
-                    "child":
-                        {"buta4":
-                    {
-                        "style":{"border radius":15,"size":(70,60),"color":(0,0,0),"background":(255,255,255)},
-                        "type":"Button",
-                        "value":"nintendo"
-                    },"buta5":
-                    {
-                        "style":{"border radius":15,"size":(100,30),"color":(0,0,0),"background":(255,255,255)},
-                        "type":"Button",
-                        "value":"Rock Star"
-                    },"buta6":
-                    {
-                        "style":{"border radius":15,"size":(75,60),"color":(0,0,0),"background":(255,255,255)},
-                        "type":"Button",
-                        "value":"Steam"
-                    },
-                    }
+            'blocos': {
+                'style': 
+                {'size': [300, 130], 
+                'border radius': 50, 
+                'background': [2, 50, 40], 
+                'position': [0, 0]},
+                'type': 'Box',
+                'value': '',
+                'child': {
+                    'butao1': {
+                        'style': 
+                        {'border radius': 15, 
+                        'size': [70, 60], 
+                        'color': [0, 0, 0], 
+                        'background': [255, 255, 255]}, 'type': 'Button', 
+                        'value': 'pressione'}
                 }
-            },
-            "style":{"size":(400,200),"border radius":50,"background":(70,50,80,.5),"position":(300,300)},
-            "type":"Box"
+            }
         }
     }
+}
 elements={}
 logo=pygame.image.load("lib/logo.png")
 with open("corpo_base.json","w")as f:
