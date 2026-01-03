@@ -2,10 +2,6 @@ Sistema Operacional Baseado em python
 ====
 desenvolvido para performar programas em [*asm*](#atualmente-conta-com-as-seguinte-instruções) baseado em ISA virutal, como em um emulador , porem com aplicações praticas. E um script para automações , o [`JA Script`](#ja-script)
 
-**Links uteis**
-
-[UI baseada em JSON](#layout-baseado-em-json--css)
-
 ## atualmente conta com as seguinte instruções:
 
 - `mov` ; registradores de `a` até `h`
@@ -170,22 +166,3 @@ Surgiu da ideia de fazer uma interface que seja manipulavel de forma conhecida d
 
 
 # JA Script
-
-```JS
-(program
-    (TARGET set bloco)
-    (DEF hover_enter (int x int y) 
-        (
-            (change color (255 255 255))
-        )
-        (RETURN 0)
-    )
-    (EVENT hover set hover)
-    (halt)
-)
-(meta
-    (version 0)
-    (buddle_id (10 2 3))
-    (name "teste")
-)
-```
