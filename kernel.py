@@ -174,7 +174,7 @@ class compilador:
             #         print(f"OLD : {tread.reg[items[-1]]}")
             # print(tread.__code__[tread.__pos__])
             op,items=self.cpu.__code__[self.cpu.__pos__]
-            await getattr(self.cpu,op)(items)
+            getattr(self.cpu,op)(items)
             # if len(items)>=1:
             #     if items[-1] in tread.w_list:
             #         print(f"NEW : {tread.reg[items[-1]]}")
