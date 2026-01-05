@@ -1,4 +1,4 @@
-import shlex,asyncio
+import shlex
 from pympler import asizeof
 from sys import argv
 from lib.JA import parser as jpass
@@ -14,6 +14,7 @@ with open("/Users/lucaschaves/projeto_os/log.txt","w")as f:
 
 from pyos import pyos16,pyos64
 class compilador:
+    import asyncio
     def __init__(self,nome:str,arch:str="pyos64"):
         self.n=nome.encode()
         self.sig=arch.encode()
@@ -175,6 +176,13 @@ class compilador:
             # print(tread.__code__[tread.__pos__])
             op,items=self.cpu.__code__[self.cpu.__pos__]
             getattr(self.cpu,op)(items)
+            temp=[]
+            for i in self.cpu.async_f:
+                # print(i)
+                temp.append(self.asyncio.create_task(i[0](*i[1])))
+            for i in temp:
+                await i
+            self.cpu.async_f=[]
             # if len(items)>=1:
             #     if items[-1] in tread.w_list:
             #         print(f"NEW : {tread.reg[items[-1]]}")
@@ -431,7 +439,7 @@ if __name__ == "__main__":
             teste.start(*app)
     else:
         with open(argv[1],"r")as f:
-            asyncio.run(teste.run(f.read()))
+            teste.asyncio.run(teste.run(f.read()))
     print(asizeof.asizeof(teste))
 
 #depois ....

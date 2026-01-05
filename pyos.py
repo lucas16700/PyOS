@@ -99,6 +99,7 @@ class pyos64:
         self.__ui__=JA.boot(self)
         self.__var__={}
         self.__events__={}
+        self.async_f=[]
     def __getstate__(self):
         current={
             "reg":self.reg,
@@ -254,7 +255,7 @@ class pyos64:
     def UI(self,any):
         atrr=any[0]
         values=[self.reg[value] for value in any[1:]]
-        getattr(self.__ui__,atrr)(*values)
+        self.async_f.append((getattr(self.__ui__,atrr),values))
     def load_script(self,any):
         file=self.reg[any[0]]
         self.__script__=JA.scripts(file)
@@ -309,11 +310,6 @@ class pyos64:
         self.__var__[".".join(self.__recursion__+[any[1]])]=[any[2:]]
         print("func defined, name",any[1],"var",any[2:])
         self.__pos__+=any[0]
-    def UI_event(self,any):
-        print("ui event seted",any)
-        if any[0]=="set":
-            self.__events__[any[2]]=any[1]
-            self.__ui__.load_script(self.__events__)
     def widget(self,any):
         pass
     def watch(self,any):
@@ -624,12 +620,18 @@ class pyos64:
     def CMP(self, any):
         left  = self.reg[any[0]]
         right = self.reg[any[1]]
-        # print(f"right: {left}\nleft: {right}")
         value = left - right
         # print(left,right)
         self.ZF = int(value == 0)
         self.NF = int(value < 0)
         self.CF = int(left < right)
+    def CMPstr(self,any):
+        left  = str(self.reg[any[0]])
+        right = str(self.reg[any[1]])
+        print(f"right: {left} -- left: {right}",end="\r")
+        self.ZF = int(left == right)
+        self.NF = int(left in right)
+        self.CF = int(right in left)
     def CMPi(self, any):
         left  = self.reg[any[0]]
         right = self.reg[any[1]]

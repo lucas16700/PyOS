@@ -1,5 +1,4 @@
 UI "load_ui" "#corpo_base.json" corpo
-load_script "#lib/base.jap"
 UI "init" "r#800 600" corpo
 point "#main"
 UI "event_manager"

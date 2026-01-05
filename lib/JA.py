@@ -1,4 +1,4 @@
-import re,pygame,json
+import re,pygame,json,asyncio
 from rich import print
 def primo(x):
     a=[2]
@@ -12,7 +12,7 @@ def primo(x):
         if prim:
             a.append(i)
     return a
-def calcular_layout(
+async def calcular_layout(
     items,
     container_width,
     start_x=0,
@@ -110,9 +110,11 @@ class JIT:
     auto={
         "change_style":prebuild(pre_build.change_style)
     }
-    def compile(self,line:list):
-        intru=line[0]
-        parans=self.auto[intru](*line[1:])
+    def compile(self,lines:list):
+        parans=[]
+        for line in lines:
+            intru=line[0]
+            parans.append(self.auto[intru](*line[1:]))
         return parans
 
 DEFAULT_EVENTS = {
@@ -162,7 +164,7 @@ class Widget:
     def __init__(self, style: dict,events: dict=DEFAULT_EVENTS,childs:None|dict["Widget"]=None):
         self.style = layout(self.DEFAULT_STYLE | style).copy()
         # print("eventos",events)
-        self.__events__ = events
+        self.__events__ = DEFAULT_EVENTS| events
         self.events=Events(self)
         self.tags={
             "hover":False
@@ -176,11 +178,12 @@ class Widget:
     def render(self):
         """Cada widget sobrescreve isso"""
         raise NotImplementedError
-    def event_act(self,event):
+    async def event_act(self,event):
         if self.child:
                 for key in self.child:
                     
-                    self.child[key].event_act(event)
+                    h=asyncio.create_task(self.child[key].event_act(event))
+                    await h
         if event.type==pygame.MOUSEMOTION:
             
             
@@ -205,7 +208,8 @@ class Widget:
                 return
         
             self.events[event_final,self]
-            self.render()
+            x=asyncio.create_task(self.render())
+            await x
         if event.type==pygame.MOUSEBUTTONDOWN:
             
             
@@ -225,24 +229,28 @@ class Widget:
             
             # print(event_final)
             self.events[event_final,self]
-            self.render()
-    def update(self):
+            x=asyncio.create_task(self.render())
+            await x
+    async def update(self):
         "atualiza a surface do widget"
         self.events_allow=True
         if self.style.old:
-            self.render()
+            rende=asyncio.create_task(self.render())
+            await rende
             self.style.turn()
             # print("updated")
-    def draw(self, screen:pygame.Surface, pos):
+    async def draw(self, screen:pygame.Surface, pos):
         "desenha em uma tela/surface"
-        self.update()
+        h=asyncio.create_task(self.update())
+        await h
         self.rect.topleft = pos
         screen.blit(self.surface, pos)
         if self.child:
 
             for key in self.child:
                 # print(f"key {key}",self.child[key].style["position"])
-                self.child[key].draw(screen,self.child[key].style["position"])
+                x=asyncio.create_task(self.child[key].draw(screen,self.child[key].style["position"]))
+                await x
     def make(self,childs):
         # print(childs)
         nwid={}
@@ -254,11 +262,11 @@ class Widget:
 class UI:
     class Button(Widget):
         "botão simples"
-        def __init__(self, value="Button", style=None,child=None):
+        def __init__(self, value="Button", style=None,child=None,events: dict=DEFAULT_EVENTS):
             self.value = value
-            super().__init__(style or {})
+            super().__init__(style or {},events)
 
-        def render(self):
+        async def render(self):
             size = self.style["size"]
             bg = self.style["background"]
             color = self.style["color"]
@@ -280,11 +288,11 @@ class UI:
             return f"<UI.Button value={self.value.__repr__()}>"
     class TextBox(Widget):
         "Caixa de texto simples"
-        def __init__(self, value="", style=None,child=None):
+        def __init__(self, value="", style=None,child=None,events: dict=DEFAULT_EVENTS):
             self.value = value
-            super().__init__(style or {})
+            super().__init__(style or {},events)
 
-        def render(self):
+        async def render(self):
             self.surface = pygame.Surface(self.style["size"])
             self.surface.fill(self.style["background"])
             ff = self.style["font name"]
@@ -297,17 +305,17 @@ class UI:
             return f"<UI.TxtBox value={self.value.__repr__()}>"
     class Box(Widget):
         "Caixa de texto simples"
-        def __init__(self, value="", style=None,child={}):
+        def __init__(self, value="", style=None,child={},events: dict=DEFAULT_EVENTS):
             self.value = value
             fc=self.make(child)
             for i in fc:
                 fc[i].dad+="box"
-            super().__init__(style or {},childs=fc)
+            super().__init__(style or {},childs=fc,events=events)
             
                 # print(key,self.child[key].style["position"])
             # print([{key:self.child[key].style["position"]} for key in self.child_layout])
 
-        def render(self):
+        async def render(self):
             size = self.style["size"]
             bg = self.style["background"]
             color = self.style["color"]
@@ -325,12 +333,14 @@ class UI:
             self.child_layout={}
             for key in self.child:
                 ele:Widget=self.child[key]
-                ele.update()
+                x=asyncio.create_task(ele.update())
+                await x
                 eles[key]=ele
                 sizes[key]=ele.surface.get_size()
-            self.child_layout=calcular_layout(sizes,self.style["size"][0],self.style["padding"],self.style["padding"])
+            self.child_layout=await calcular_layout(sizes,self.style["size"][0],self.style["padding"],self.style["padding"])
             for key in self.child_layout:
-                self.child[key].update()
+                h=asyncio.create_task(self.child[key].update())
+                await x
                 # print(key,self.child_layout[key],self.child[key].style["position"])
                 cp=self.style["position"].copy()
                 cp[0]+=self.child_layout[key][0]
@@ -532,11 +542,31 @@ corpo_base={
         'style': {
             'size': [400, 200], 
             'border radius': 50, 
-            'background': [70, 50, 80, 100], 
+            'background': [255, 0, 0, 100], 
             'position': [300, 300]},
-        'type': 'Box'
+        'type': 'Box',
+        'events':{
+            'hover_leave':{
+                "script": ("change_style" ,"background", [255, 0, 0, 100]),
+                "JIT": True
+            },
+            'hover_enter':{
+                "script": ("change_style" ,"background", [255, 0, 0, 255]),
+                "JIT": True
+            }
+            }
         ,'child': {
             'butao1': {
+                'events':{
+                    'hover_leave':{
+                        "script": ("change_style" ,"background", [0, 0, 255, 100]),
+                        "JIT": True
+                    },
+                    'hover_enter':{
+                        "script": ("change_style" ,"background", [0, 0, 255, 200]),
+                        "JIT": True
+                    }
+                    },
                 'style': 
                 {'border radius': 15, 
                 'size': [100, 30], 
@@ -546,6 +576,16 @@ corpo_base={
                 'value': 'pressione'
                 },
             'blocos': {
+                'events':{
+                    'hover_leave':{
+                        "script": ("change_style" ,"background", [0, 255, 0, 100]),
+                        "JIT": True
+                    },
+                    'hover_enter':{
+                        "script": ("change_style" ,"background", [0, 255, 0, 200]),
+                        "JIT": True
+                    }
+                    },
                 'style': 
                 {'size': [300, 130], 
                 'border radius': 50, 
@@ -554,7 +594,16 @@ corpo_base={
                 'type': 'Box',
                 'value': '',
                 'child': {
-                    'butao1': {
+                    'butao1': {'events':{
+                    'hover_leave':{
+                        "script": ("change_style" ,"background", [0, 0, 255, 100]),
+                        "JIT": True
+                    },
+                    'hover_enter':{
+                        "script": ("change_style" ,"background", [0, 0, 255, 200]),
+                        "JIT": True
+                    }
+                    },
                         'style': 
                         {'border radius': 15, 
                         'size': [70, 60], 
@@ -575,61 +624,66 @@ class boot:
         self.tread:pyos64=cpu
         self.tread.reg
         self.event_funcs={}
-    def init(self,size,ui):
+    async def init(self,size,ui):
         pygame.init()
         pygame.font.init()
         self.clock=pygame.time.Clock()
         self.clock.tick()
+        print("ja api inited")
         print(size)
         self.window=pygame.display.set_mode(size)
         self.elements={}
         body=ui
         print(body)
         self.tread.reg["x11"]=1
+        print("x11  ==",self.tread.reg["x11"])
         for key in body:
             tip=body[key].pop("type")
             self.elements[key]=getattr(UI,tip)(**body[key])
-            self.elements[key].update()
+            x=asyncio.create_task(self.elements[key].update())
+            await x
         x=size[0]/2-400
         y=size[1]/2-400
         self.window.blit(logo,(x,y))
-    def update(self):
+    async def update(self):
         pygame.display.update()
-    def load_script(self,funcs):
+    async def load_script(self,funcs):
+        print(funcs)
         for key in funcs:
             self.event_funcs[key]=funcs[key]
         # print("script loaded",self.event_funcs)
-    def load_ui(self,file,output):
+    async def load_ui(self,file,output):
         with open(file,"r")as f:
             meta=json.load(f)
         # print("output ",output)
         self.tread.reg[output]=meta
-    def event_manager(self):
+    async def event_manager(self):
         pygame.display.set_caption(str(self.clock.get_fps()))
         self.clock.tick()
         for event in pygame.event.get():
-            for key in self.elements:
-                    self.elements[key].event_act(event)
+            await asyncio.sleep(0.01)
+            [await self.elements[key].event_act(event) for key in self.elements]
                     # self.elements:dict[Widget|UI.Box]
             if event.type==pygame.QUIT:
                 self.tread.reg["x11"]=0
             tp= self.event_funcs.get(event.type,"")
             if tp != "":
                 self.tread.call([tp])
-    def syscall(self,atrr,values):
+    async def syscall(self,atrr,values):
         getattr(pygame,atrr)(*values)
-    def fill(self,color):
+    async def fill(self,color):
         self.window.fill(color)
-    def draw_ui(self):
+    async def draw_ui(self):
         for key in self.elements:
-            self.elements[key].draw(self.window,self.elements[key].style["position"])
-    def ui_patch(self,key,value:dict):
+            x=asyncio.create_task(self.elements[key].draw(self.window,self.elements[key].style["position"]))
+            await x
+    async def ui_patch(self,key,value:dict):
         tip=value.pop("type")
         self.elements[key]=getattr(UI,tip)(**value)
         self.elements[key].update()
-    def ui_pop(self,key):
+    async def ui_pop(self,key):
         self.elements.pop(key)
-    def sytle_change(self,obj,key,nvalue):
+    async def sytle_change(self,obj,key,nvalue):
         self.elements[obj].style[key]=nvalue
         self.elements[obj].update()
 # teste=boot((1200,800),corpo_base)
