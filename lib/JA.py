@@ -1,4 +1,4 @@
-import re,pygame,json,asyncio
+import re,pygame,json,asyncio,os
 from rich import print
 def primo(x):
     a=[2]
@@ -86,16 +86,15 @@ class pre_build:
     def change_style(self,__key,__value):
         self.style[__key]=__value
         # print(f"changed {__value}")
-    def change_type(self,__type):
-        getattr(UI,__type).__init__(self,self.value,self.style,self.child)
-def prebuild(fn):
-    def binder(*args, **kwargs):
-        # aqui args/kwargs são os dados do script
-        def executor(obj):
-            # aqui obj será seu widget real
-            return fn(obj, *args, **kwargs)
-        return executor
-    return binder
+    def start_app(self,name,make=False):
+        os.system(f"python3 ./kernel.py ./user_space/app-datas/{name} rmake &")
+    
+def prebuild(fns):
+    def executor(obj):
+        # aqui obj será seu widget real
+        # print(fns)
+        return [fn(obj, *agr) for fn,agr in fns]
+    return executor
 class JIT:
     def __init__(self,code:list):
         temp={}
@@ -107,19 +106,20 @@ class JIT:
             
         self.results={temper:temp[temper] for temper in temp}
     
-    auto={
-        "change_style":prebuild(pre_build.change_style)
-    }
+    
     def compile(self,lines:list):
         parans=[]
         for line in lines:
-            intru=line[0]
-            parans.append(self.auto[intru](*line[1:]))
-        return parans
+            try:
+                intru=line[0]
+                parans.append((getattr(pre_build,intru),line[1:]))
+            except:
+                pass
+        return prebuild(parans)
 
 DEFAULT_EVENTS = {
         "hover_enter": {
-            "script": ("change_style" ,"background", (100, 100, 100, 200)),
+            "script": (("change_style" ,"background", (100, 100, 100, 20)),()),
             "JIT": True
         },
         "hover": {
@@ -127,15 +127,15 @@ DEFAULT_EVENTS = {
             "JIT": False
         },
         "hover_leave": {
-            "script": ("change_style" ,"background", (255, 255, 255, 100)),
+            "script": (("change_style" ,"background", (255, 255, 255, 10)),()),
             "JIT": True
         },
         "click_in": {
-            "script": ("change_style" ,"background", (0, 255, 0, 100)),
+            "script": (("change_style" ,"background", (0, 255, 0, 100)),()),
             "JIT": True
         },
         "click_out": {
-            "script": ("change_style" ,"background", (255, 0, 0, 100)),
+            "script": (("change_style" ,"background", (255, 0, 0, 100)),()),
             "JIT": True
         },
         "focus": {
@@ -157,7 +157,7 @@ class Widget:
         "border radius": 0,
         "font size": 16,
         "font name":"arial",
-        "position":(0,0),
+        "position":[0,0],
         "padding":0,
     }
     
@@ -173,8 +173,14 @@ class Widget:
         self.surface = None
         self.rect = pygame.Rect((0, 0), self.style["size"])
         self.dirty = True  # controla quando redesenhar
-        self.child=childs
+        self.child:dict[Widget]=childs
         self.events_allow=False
+    def __getstate__(self):
+        values={
+            "events":self.__events__,
+            "tags":self.tags,
+            "child":self.child
+        }
     def render(self):
         """Cada widget sobrescreve isso"""
         raise NotImplementedError
@@ -547,11 +553,11 @@ corpo_base={
         'type': 'Box',
         'events':{
             'hover_leave':{
-                "script": ("change_style" ,"background", [255, 0, 0, 100]),
+                "script": (("change_style" ,"background", [255, 0, 0, 100]),()),
                 "JIT": True
             },
             'hover_enter':{
-                "script": ("change_style" ,"background", [255, 0, 0, 255]),
+                "script": (("change_style" ,"background", [255, 0, 0, 255]),()),
                 "JIT": True
             }
             }
@@ -559,11 +565,15 @@ corpo_base={
             'butao1': {
                 'events':{
                     'hover_leave':{
-                        "script": ("change_style" ,"background", [0, 0, 255, 100]),
+                        "script": (("change_style" ,"background", [0, 0, 255, 100]),()),
                         "JIT": True
                     },
                     'hover_enter':{
-                        "script": ("change_style" ,"background", [0, 0, 255, 200]),
+                        "script": (("change_style" ,"background", [0, 0, 255, 200]),()),
+                        "JIT": True
+                    },
+                    'click_in':{
+                        "script": (("start_app" ,"programa.asm", True),()),
                         "JIT": True
                     }
                     },
@@ -578,11 +588,11 @@ corpo_base={
             'blocos': {
                 'events':{
                     'hover_leave':{
-                        "script": ("change_style" ,"background", [0, 255, 0, 100]),
+                        "script": (("change_style" ,"background", [0, 255, 0, 100]),()),
                         "JIT": True
                     },
                     'hover_enter':{
-                        "script": ("change_style" ,"background", [0, 255, 0, 200]),
+                        "script": (("change_style" ,"background", [0, 255, 0, 255]),()),
                         "JIT": True
                     }
                     },
@@ -596,11 +606,11 @@ corpo_base={
                 'child': {
                     'butao1': {'events':{
                     'hover_leave':{
-                        "script": ("change_style" ,"background", [0, 0, 255, 100]),
+                        "script": (("change_style" ,"background", [0, 0, 255, 100]),()),
                         "JIT": True
                     },
                     'hover_enter':{
-                        "script": ("change_style" ,"background", [0, 0, 255, 200]),
+                        "script": (("change_style" ,"background", [0, 0, 255, 200]),()),
                         "JIT": True
                     }
                     },
@@ -617,27 +627,35 @@ corpo_base={
 }
 elements={}
 logo=pygame.image.load("lib/logo.png")
-with open("corpo_base.json","w")as f:
-    json.dump(corpo_base,f)
+# with open("corpo_base.json","w")as f:
+#     json.dump(corpo_base,f)
+def vel():
+    pass
 class boot:
     def __init__(self,cpu):
         self.tread:pyos64=cpu
         self.tread.reg
         self.event_funcs={}
+        self.inited=False
     async def init(self,size,ui):
+        if self.inited:
+            print("already inited")
+            return
         pygame.init()
         pygame.font.init()
         self.clock=pygame.time.Clock()
         self.clock.tick()
         print("ja api inited")
-        print(size)
+        # print(size)
         self.window=pygame.display.set_mode(size)
         self.elements={}
         body=ui
-        print(body)
+        # print(body)
         self.tread.reg["x11"]=1
-        print("x11  ==",self.tread.reg["x11"])
+        # print("x11  ==",self.tread.reg["x11"])
+        print("body",body)
         for key in body:
+            print(key)
             tip=body[key].pop("type")
             self.elements[key]=getattr(UI,tip)(**body[key])
             x=asyncio.create_task(self.elements[key].update())
@@ -645,6 +663,7 @@ class boot:
         x=size[0]/2-400
         y=size[1]/2-400
         self.window.blit(logo,(x,y))
+        self.inited=True
     async def update(self):
         pygame.display.update()
     async def load_script(self,funcs):
@@ -652,16 +671,11 @@ class boot:
         for key in funcs:
             self.event_funcs[key]=funcs[key]
         # print("script loaded",self.event_funcs)
-    async def load_ui(self,file,output):
-        with open(file,"r")as f:
-            meta=json.load(f)
-        # print("output ",output)
-        self.tread.reg[output]=meta
     async def event_manager(self):
         pygame.display.set_caption(str(self.clock.get_fps()))
         self.clock.tick()
+        
         for event in pygame.event.get():
-            await asyncio.sleep(0.01)
             [await self.elements[key].event_act(event) for key in self.elements]
                     # self.elements:dict[Widget|UI.Box]
             if event.type==pygame.QUIT:
@@ -669,6 +683,8 @@ class boot:
             tp= self.event_funcs.get(event.type,"")
             if tp != "":
                 self.tread.call([tp])
+        
+        # Define o horário esperado para o próximo frame
     async def syscall(self,atrr,values):
         getattr(pygame,atrr)(*values)
     async def fill(self,color):

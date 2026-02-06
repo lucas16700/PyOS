@@ -1,23 +1,26 @@
-import shlex
+import shlex, asyncio,traceback as tcb,pickle,gzip
 from pympler import asizeof
-from sys import argv
 from lib.JA import parser as jpass
+from sereal import generator
 # from pickle import dumps , loads
 ideia="""mov $1 a
 mov "#hello world" b
 syscall
 mov $10
 halt"""
+
+from sys import argv
 print(str(argv))
 with open("/Users/lucaschaves/projeto_os/log.txt","w")as f:
         f.write(str(argv))
 
 from pyos import pyos16,pyos64
 class compilador:
-    import asyncio
+    module_=False
     def __init__(self,nome:str,arch:str="pyos64"):
         self.n=nome.encode()
         self.sig=arch.encode()
+        self.save=[]
     # paleta={
     #     b"pyos":{
     #         "mov":pyos.mov,
@@ -33,72 +36,23 @@ class compilador:
         b"pyos16":pyos16,
         b"pyos64":pyos64
     }
-    opcode=[
-        "mov",
-        "movr",
-        "movx",
-        "syscall",
-        "jmp",
-        "add",
-        "sub",
-        "mul",
-        "div",
-        "halt",
-        "cmp",
-        "eval",
-        "set",
-        "watch",
-        "nwatch",
-        "trace",
-        "AND",
-        "OR",
-        "NOT",
-        "SHL",
-        "SHR",
-        "inc",
-        "xinc",
-        "xneg",
-        "neg",
-        "call",
-        "ret",
-        "pop",
-        "push",
-        "load",
-        "store",
-        "loop",
-        "xloop",
-        "module"
-    ]
-    opreg=[
-        "a",
-        "b",
-        "c",
-        "d",
-        "x",
-        "r0",
-        "r1",
-        "r2",
-        "r3",
-        "rx",
-        "ry",
-        "rz"
-    ]
     optypes={
         "!":b"\x01",    #bytes
         "#":b"\x02",    #str
         "$":b"\x03",    #int
         "@":b"\x04"     #img
     }
-    def item_parser(self,code):
+    def item_parser(self,code,save=False):
         op=code[0]
         items=[]
             # print(tread.pos)
             # print(actin[tread.pos])
         for i in code[1:]:
-            if "r#" in i:
-                ni=i.replace("r#","")
-                items.append(jpass(ni).pre())
-            elif "$" in i:
+            i:str
+            if i.startswith("r"):
+                ni=i.replace("r","")
+                items.append(jpass(ni).pre())# converter S-Expression para lista
+            elif i.startswith("$"):
                 ni=i.replace("$","")
                 print(i)
                 try:
@@ -107,15 +61,21 @@ class compilador:
                     items.append(ni)
                 # print("used")
             
-            elif "!" in i:
+            elif i.startswith("!"):
                 ni=i.replace("!","")
                 items.append(bool(ni))
-            elif "#" in i:
+            elif i.startswith("#"):
                 ni=i.replace("#","")
+                items.append(ni)
+            elif i.startswith("@"):
+                ni=i.replace("@","")
                 items.append(ni)
             else:
                 items.append(i)
-        return op,items
+        if save:
+            self.save.append((op,items))
+        print(op)
+        return getattr(self.cpu,op),items
     def str2code(self,code:str):
         code=str(code)
         paciente=code.splitlines()
@@ -129,9 +89,8 @@ class compilador:
                 # print("ic :",ic)
                     tratado . append(ic)
         return [self.item_parser(shlex.split(line)) for line in tratado]
-    async def run(self,code:str,save=True):
-        Ccode=[]
-        self.cpu=compilador.paleta[self.sig](self)
+    async def run(self,code:str,save=True,inject:dict=None):
+        self.cpu:pyos64=compilador.paleta[self.sig](self)
         paciente=code.splitlines()
         # print(paciente)
         tratado=[]
@@ -142,9 +101,17 @@ class compilador:
                 else:
                 # print("ic :",ic)
                     tratado . append(ic)
-        self.cpu.__code__=[self.item_parser(shlex.split(line)) for line in tratado]
-        
+        self.cpu.__code__=[self.item_parser(shlex.split(line),True) for line in tratado]
+        if self.module_:
+            for key in inject:
+                self.cpu.reg[key]=inject[key]
+        #         print(key,"injected",inject[key])
+        #     print(inject)
+        # print("injet",self.module_)
+        print(self.cpu.__code__)
+        line={}
         while self.cpu.reg["x"]:
+                [
             # print(actin)
             # print(actin[1:])
             # items=[]
@@ -174,117 +141,41 @@ class compilador:
             #         print(f"## watch point triggered @ addr {items[-1]} ##")
             #         print(f"OLD : {tread.reg[items[-1]]}")
             # print(tread.__code__[tread.__pos__])
-            op,items=self.cpu.__code__[self.cpu.__pos__]
-            getattr(self.cpu,op)(items)
-            temp=[]
-            for i in self.cpu.async_f:
-                # print(i)
-                temp.append(self.asyncio.create_task(i[0](*i[1])))
-            for i in temp:
-                await i
-            self.cpu.async_f=[]
-            # if len(items)>=1:
-            #     if items[-1] in tread.w_list:
-            #         print(f"NEW : {tread.reg[items[-1]]}")
-            # print(tread.pos)
-            self.cpu.__pos__+=1
-        # print(tread.reg)
-        self.reg=self.cpu.cpu_state=self.cpu
+                ]
+                op,items=self.cpu.__code__[self.cpu.__pos__]
+                op(items)
+                temp=[]
+                for i in self.cpu.__async_f__:
+                    # print(i)
+                    temp.append(asyncio.create_task(i[0](*i[1])))
+                    if i[2]:
+                        await temp[-1]
+                # for i in temp:
+                #     try:
+                #         await i
+                #     except KeyboardInterrupt:
+                #         print("keyboard pressed")
+                #     except Exception:
+                #         print(f"###Error###\nSegmentation Fault!\nLine {str(self.cpu.__pos__+1)}\nOP: {op} > Args/Items {items}")
+                #         tcb.print_exc()
+                #         if self.cpu.__pos__ in line.keys():
+                #             exit()    
+                #         line[self.cpu.__pos__]=True
+                try:
+                    self.cpu.__async_f__=[]
+                    # if len(items)>=1:
+                    #     if items[-1] in tread.w_list:
+                    #         print(f"NEW : {tread.reg[items[-1]]}")
+                    # print(tread.pos)
+                    self.cpu.__pos__+=1
+                except:
+                    continue
+        
         if save:
             # print(tread.func)
-            return self.cpu.__code__,self.cpu.func
-    def write(self,save,func):
-        app=b""
-        code=[]
-        data=[]
-        data_index=0
-        # print(func)
-        for line in save:
-            # print(line)
-            subcode=[self.opcode.index(line[0]).to_bytes()]
-            # print(line,len(line),len(line).to_bytes())
-            
-            subcode.append(int(len(line)-1).to_bytes())
-            for arg in line[1:]:
-                if "#"  in arg or "@"  in arg or "!"  in arg:
-                    subcode.append(b"\x02")
-                    subcode.append(int(data_index).to_bytes())
-                    data.append(arg)
-                    data_index+=1
-                elif "$" in arg:
-                    if int(arg.replace("$",""))<255 and int(arg.replace("$",""))>-1:
-                        subcode.append(b"\x01")
-                        # print(arg)
-                        subcode.append(int(arg.replace("$","")).to_bytes(signed=True))
-                    else:
-                        subcode.append(b"\x02")
-                        subcode.append(int(data_index).to_bytes())
-                        data.append(arg)
-                else:
-                    subcode.append(b"\x03")
-                    subcode.append(self.opreg.index(arg).to_bytes())
-            code.append(subcode)
-        fcode=b""
-        for scode in code:
-            fcode+=b"".join(scode)
-        funcs={}
-        for key in func:
-            funcs[key]=[]
-            for real in func[key]:
-                # print(line)
-                subcode=[self.opcode.index(real[0]).to_bytes()]
-                # print(real,len(real),len(real).to_bytes())
-                
-                subcode.append(int(len(real)-1).to_bytes())
-                for arg in real[1:]:
-                    if "#"  in arg or "@"  in arg or "!"  in arg:
-                        subcode.append(b"\x02")
-                        subcode.append(int(data_index).to_bytes())
-                        data.append(arg)
-                        data_index+=1
-                    elif "$" in arg:
-                        if int(arg.replace("$",""))<255 and int(arg.replace("$",""))>-1:
-                            subcode.append(b"\x01")
-                            # print(arg)
-                            subcode.append(int(arg.replace("$","")).to_bytes(signed=True))
-                        else:
-                            subcode.append(b"\x02")
-                            subcode.append(int(data_index).to_bytes())
-                            data.append(arg)
-                    else:
-                        subcode.append(b"\x03")
-                        subcode.append(self.opreg.index(arg).to_bytes())
-                funcs[key].append(subcode)
-        final_func=len(funcs).to_bytes()
-        for key in funcs:
-            tfunc=len(key).to_bytes(2)
-            tfunc+=key.encode()
-            # print("funcs key=",key,funcs[key])
-            tjoin=[]
-            for line in funcs[key]:
-                tjoin.append(b"".join(line))
-            fjoin=b"".join(tjoin)
-            # print("func",fjoin)
-            fsize=len(fjoin).to_bytes(2)
-            final_func+=tfunc+fsize+fjoin
-
-
-        fdata=b""
-        for DATA in data:
-            fdata+=self.optypes[DATA[0]]
-            DATA.replace(DATA[0],"")
-            fdata+=len(DATA).to_bytes()
-            fdata+=DATA.encode()
-        meta=len(self.sig).to_bytes()+self.sig+len(self.n).to_bytes()+self.n
-        offsetcode=len(meta)+24
-        offsetdata=len(fcode)+offsetcode
-        offsetfunc=len(fdata)+offsetdata
-        meta+=offsetcode.to_bytes(8)+offsetdata.to_bytes(8)+offsetfunc.to_bytes(8)
-        app=meta+fcode+fdata+final_func
-        # print(app)
-        return app
-        # with open("temp.pyapp","wb")as f:
-        #     f.write(app)
+            return self.cpu.__code__,self.cpu.__func__
+    def Break(self):
+        self
     def make(self,code):
         # Ccode=[]
         # tread=compilador.paleta[self.sig](self)
@@ -297,109 +188,15 @@ class compilador:
                 tratado . append(ic)
         actin=[shlex.split(line) for line in tratado]
         return actin
-    def read(self,bin):
-        arch_len=int(bin[0])+1
-        arch=bin[1:arch_len]
-        name_len=int(bin[arch_len])+1
-        name=bin[arch_len+1:arch_len+name_len]
-        codeoffset=int.from_bytes(bin[arch_len+name_len:arch_len+name_len+8])
-        off=arch_len+name_len+8
-        dataoffset=int.from_bytes(bin[off:off+8])
-        funcoffset=int.from_bytes(bin[off+8:off+16])
-        # print(codeoffset,dataoffset)
-        code=bin[codeoffset:dataoffset]
-        data=bin[dataoffset:funcoffset]
-        funco=bin[funcoffset:]
-        # print(code,"\n",data)
+    def write(self,file):# não funcional, ainda estou pensando como fazer
+        xop=set()
+        pargs=[]
         fcode=[]
-        bvar_index=0
-        bin_var=[]
-        data_off=0
-        while True:
-            try:
-                Super_t=self.optypes.items()
-                for n in Super_t:
-                    if data[data_off].to_bytes() in n:
-                        data_key=n[0]
-                        break
-                data_off+=1
-                # print(data_key)
-                size=data[data_off]
-                # print("data:",data[data_off+1:size+data_off+1])
-                bin_var.append(data[data_off+1:size+data_off+1])
-                data_off+=size+1
-            except:
-                # print(bin_var)
-                break
-        code_off=0
-        b_index=0
-        while True:
-            try:
-                instruc=[self.opcode[code[code_off]]]
-                code_off+=1
-                # print("len:",code[code_off])
-                for i in range(code[code_off]):
-                    code_off+=1
-                    # print("caracter",code[code_off])
-                    if code[code_off]==1:
-                        code_off+=1
-                        instruc.append(code[code_off])
-                    elif code[code_off]==3:
-                        code_off+=1
-                        instruc.append(self.opreg[code[code_off]])
-                    elif code[code_off]==2:
-                        code_off+=1
-                        instruc.append(bin_var[b_index])
-                        b_index+=1
-                code_off+=1
-                # print("instruc",instruc)
-                fcode.append(instruc)
-            except:
-                # print("final code:",fcode)
-                break
-        funcs={}
-        funco_off=1
-        # print("len function",funco[0])
-        for i in range(funco[0]):
-            funco_off+=1
-            name_l=funco[funco_off]
-            funco_off+=1
-            # print("name len",name_l)
-            key_name=funco[funco_off:name_l+funco_off]
-            funcs[key_name]=[]
-            funco_off+=name_l
-            xsize=int.from_bytes(funco[funco_off:funco_off+2])
-            funco_off+=2
-            func=funco[funco_off:xsize+funco_off]
-            # print("func ",func)
-            funco_off+=xsize
-            func_off=0
-            while True:
-                try:
-                    instruc=[self.opcode[func[func_off]]]
-                    func_off+=1
-                    # print("len:",code[code_off])
-                    for i in range(func[func_off]):
-                        func_off+=1
-                        # print("caracter",code[code_off])
-                        if func[func_off]==1:
-                            func_off+=1
-                            instruc.append(func[func_off])
-                        elif func[func_off]==3:
-                            func_off+=1
-                            instruc.append(self.opreg[func[func_off]])
-                        elif func[func_off]==2:
-                            func_off+=1
-                            instruc.append(bin_var[b_index])
-                            b_index+=1
-                    func_off+=1
-                    # print("instruc",instruc)
-                    funcs[key_name].append(instruc)
-                except:
-                    # print("final code:",fcode)
-                    break
-        # print("final_func",funcs)
-        return fcode,funcs
+        for op,agrs in self.save:
+            xop.add(op)
+            pargs.append(agrs)
+        gen=generator([list(xop),pargs])
+        gen.dump(file)
     def start(self,bin,funcs):
         tread=compilador.paleta[self.sig](self)
         self.funcs=funcs
@@ -431,17 +228,79 @@ class compilador:
             getattr(tread,bin[tread.__pos__][0])(items)
             tread.__pos__+=1
         self.reg=tread.reg
+    def __getstate__(self):
+        self.cpu.reg["x"]=True
+        values={
+            "cpu":self.cpu,
+            "name":self.n,
+            "sig":self.sig
+        }
+        return values
+    def __setstate__(self,values):
+        self.cpu=values["cpu"]
+        self.cpu.__real__=self
+        self.n=values["name"]
+        self.sig=values["sig"]
 if __name__ == "__main__":
     teste= compilador("codigo")
     if ".bin" in argv[1]:
         with open(argv[1],"rb")as f:
             app=teste.read(f.read())
             teste.start(*app)
-    else:
+    elif "r" in argv:
         with open(argv[1],"r")as f:
-            teste.asyncio.run(teste.run(f.read()))
-    print(asizeof.asizeof(teste))
-
+            asyncio.run(teste.run(f.read()))
+        # import matplotlib.pyplot  as mtp
+        # mtp.plot(range(len(teste.cpu.reg.history)),teste.cpu.reg.history)
+        # mtp.show()
+    elif "r-" in argv:
+        compilador.module_=True
+        layout={
+    "main":{
+        "type":"Box",
+        "value":"",
+        "style":{
+            "size":[200,140],
+            "position":[20,50]
+        },
+        "child":{
+            "texto":{
+                "type":"TextBox",
+                "value":"programa iniciado",
+                "style":{
+                    "color":[255,255,255],
+                    "background":[255,255,255,255],
+                },
+                'events':{
+                    'hover_leave':{
+                        "script": (("change_style" ,"background", [100, 100, 100, 255]),
+                                   ("change_style" ,"color", [0, 0, 0, 255])),
+                        "JIT": True
+                    },
+                    'hover_enter':{
+                        "script": (("change_style" ,"background", [255, 255, 255, 255]),
+                                   ("change_style" ,"color", [0, 0, 0, 255])),
+                        "JIT": True
+                    }
+                }
+            }
+        }
+    }
+}
+        with open(argv[1],"r")as f:
+            asyncio.run(teste.run(f.read(),inject={"corpo":layout}))
+        teste.write("temp.pickle")
+    elif "rmake" in argv:
+        try:
+            with open(argv[1],"r")as f:
+                teste.asyncio.run(teste.run(f.read()))
+        except:
+            print("failed to open: ",argv[1])
+    else:
+        print("kernel usage: <file.asm> ['r' run projects|'rmake' run projects from user_space]")
+else:
+    print("module mode")
+    compilador.module_=True
 #depois ....
 # binario=teste.write(*projeto)
 # print(binario)

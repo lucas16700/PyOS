@@ -3,17 +3,23 @@ from rich import print
 from random import randbytes,randint
 # from json import dumps, loads
 from lib import JA
-from lib.wprotoc import server,client
+# from lib.wprotoc import server,client
 from time import time
 from pickle import dumps as upld,loads as dowld
 import pygame
 from numba import jit,njit
 import serializador,asyncio
+from pympler import asizeof
+from utils_grafic.surfs import surf
+import asyncio
 if __name__ =="mojang":
-    from kernel import compilador as kernel
+    from kernel import compilador as kernel # para eu editar no vs code
 print("pyos booted")
 def ps(*arg,**karg):
     pass
+# depois de testes isso se tornou um peso desnessessario por conta da criação de wigets#
+# que esta dentro de JA, que é sigla para Json Application
+# atualmente uso esse cenario para fazer tudo no sistema
 # class caching:
 #     memory={}
 #     def get(func):
@@ -83,14 +89,14 @@ class pyos64:
         self.__code__=[]
         self.__stack__=[]
         self.__mem__={}
-        self.ZF=0
-        self.NF=0
-        self.CF=0
+        self.__ZF__=0
+        self.__NF__=0
+        self.__CF__=0
         self.__pos__=0
-        self.debug=False
-        self.w_list=[]
-        self.func={}
-        self.real:kernel=tread
+        self._debug_=False
+        self.__w_list__=[]
+        self.__func__={}
+        self.__real__:kernel=tread
         self.__point__={}
         self.__states__={}
         self.__graf__=self.imagem_compose(self)
@@ -99,45 +105,38 @@ class pyos64:
         self.__ui__=JA.boot(self)
         self.__var__={}
         self.__events__={}
-        self.async_f=[]
+        self.__async_f__=[]
     def __getstate__(self):
         current={
-            "reg":self.reg,
-            "mem":self.__mem__,
-            "states":self.__states__,
-            "var":self.__var__,
-            "recursion":self.__recursion__,
-            "graf":self.__graf__,
-            "ui":self.__ui__,
-            "events":self.__events__,
-            "code":self.__code__,
-            "stack":self.__stack__,
-            "ZNCF":[self.ZF,self.NF,self.CF],
-            "pos":self.__pos__,
-            "funcs":self.func,
-            "point":self.__point__,
-            "valid":time()
+            "reg"           : self.reg        , 
+            "greg"          : self.greg       , 
+            "sys"           : self.sys        , 
+            "__code__"      : self.__code__   , 
+            "__stack__"     : self.__stack__  , 
+            "__mem__"       : self.__mem__    , 
+            "ZF"            : self.__ZF__         , 
+            "NF"            : self.__NF__         , 
+            "CF"            : self.__CF__         , 
+            "__pos__"       : self.__pos__    , 
+            "_debug_"       : self._debug_  , 
+            "__w_list__"    : self.__w_list__ , 
+            "__func__"      : self.__func__   , 
+            "__point__"    : self.__point__  , 
+            "__states__"    : self.__states__ , 
+            # self.__graf__self.imagem_compose(self)
+            "__recursion__" : self.__recursion__, 
+            "__env__"       : self.__env__    , 
+            "__var__"       : self.__var__    , 
+            "__events__"    : self.__events__ , 
+            "__async_f__"   : self.__async_f__,
         }
         return current
     def __setstate__(self,value):
-        valid=value["valid"]
-        if time()+10>valid:
-            self.reg                  =value["reg"]   
-            self.__code__             =value["code"]  
-            self.__stack__            =value["stack"] 
-            self.ZF,self.NF,self.CF   =value["ZNCF"]  
-            self.__pos__              =value["pos"]   
-            self.func                 =value["funcs"] 
-            self.__point__            =value["point"]   
-        else:
-            self.reg                  =value["reg"]   
-            self.__code__             =value["code"]  
-            self.__stack__            =value["stack"] 
-            self.ZF,self.NF,self.CF   =value["ZNCF"]  
-            self.__pos__              =value["pos"]   
-            self.func                 =value["funcs"] 
-            self.__point__            =value["point"]   
-            print("ta velho")
+        for key in value:
+            setattr(self,key,value[key])
+        self.__ui__=JA.boot(self)
+        self.__graf__=self.imagem_compose(self)
+        
     class __back__:
         def __init__(self,tread:"pyos64"):
             self.reg=tread.reg
@@ -158,15 +157,19 @@ class pyos64:
                 "rgb1":0,
                 "rgb2":0,
                 "rgb3":0,
-                "surf0":pygame.Surface((10,10)),
-                "surf1":pygame.Surface((100,100)),
-                "surf2":pygame.Surface((3,3)),
-                "surf3":pygame.Surface((1,1)),
+                "surf0":surf((10,10)),
+                "surf1":surf((100,100)),
+                "surf2":surf((3,3)),
+                "surf3":surf((1,1)),
                 "keyboard":[0],
                 "mouse_k":[0,0,0],
                 "mouse_pos":[0,0]
             }
             self.real=tread
+        def __getstate__(self):
+            return self.graf
+        def __setstate__(self,values):
+            self.graf=values
         def __getitem__(self,__value):
             try:
                 # print(f"get {__value} -> {self.values[__value]}")
@@ -193,7 +196,6 @@ class pyos64:
             return str(self.values)
     class __reg__:
         def __init__(self,tread:"pyos64"):
-            din=dinamica()
             self.values={
                 "rax":0,#
                 "rgx":0,#
@@ -225,6 +227,12 @@ class pyos64:
                 "ist":0
             }
             self.real=tread
+
+            self.history=[asizeof.asizeof(self)]
+        def __getstate__(self):
+            return self.values
+        def __setstate__(self,values):
+            self.values=values
         def __getitem__(self,__value:str):
             try:
                 # print(f"get {__value} -> {self.values[__value]}")
@@ -239,6 +247,7 @@ class pyos64:
                     self.values[__key]=__value
                 except:
                     print(f"set {__key}<# {__value}")
+                # self.history.append(asizeof.asizeof())
         def __repr__(self):
             return f"internal registers:\n{self.values}"
         def __str__(self):
@@ -254,8 +263,10 @@ class pyos64:
         pass
     def UI(self,any):
         atrr=any[0]
+
         values=[self.reg[value] for value in any[1:]]
-        self.async_f.append((getattr(self.__ui__,atrr),values))
+            
+        self.__async_f__.append((getattr(self.__ui__,atrr),values,True))
     def load_script(self,any):
         file=self.reg[any[0]]
         self.__script__=JA.scripts(file)
@@ -306,18 +317,16 @@ class pyos64:
         with open(any[0],"w")as f:
             f.write(str(self.__script__.codes))
     def set(self,any):
-        self.func[".".join(self.__recursion__+[any[1]])]=[fcode for fcode in self.__code__[self.__pos__+1:self.__pos__+int(any[0])+1]]
-        self.__var__[".".join(self.__recursion__+[any[1]])]=[any[2:]]
-        print("func defined, name",any[1],"var",any[2:])
+        self.__func__[self.reg[any[1]]]=self.__pos__
         self.__pos__+=any[0]
-    def widget(self,any):
-        pass
+    def wire(self,any):
+        pass #vou implementar coisas aqui
     def watch(self,any):
-        self.w_list.append(any[0])
+        self.__w_list__.append(any[0])
     def nwatch(self,any):
-        self.w_list.remove(any[0])
+        self.__w_list__.remove(any[0])
     def trace(self,any):
-        self.debug = any[0]
+        self._debug_ = any[0]
     def AND(self,any):
         self.reg[any[2]]=self.reg[any[0]] & self.reg[any[1]]
     def OR(self,any):
@@ -366,36 +375,9 @@ class pyos64:
     def call(self, any):
         # push posição atual
         # print("aqui")
-        # self.__stack__.append(self.__pos__)
+        self.__stack__.append(self.__pos__)
         # print(".".join(self.__recursion__+[self.reg[any[0]]]),self.func)
-        copy=self.__pos__
-        self.__pos__=0
-        code_copy=self.__code__.copy()
-        regs=self.reg.copy()
-
-        self.__recursion__.append(self.reg[any[0]])
-        self.__code__=self.func[self.reg[any[0]]]
-        while self.reg["x"]!=0:
-            try:
-                op,items=self.real.item_parser(self.__code__[self.__pos__])
-                getattr(self,op)(items)
-                if op=="halt":
-                    print("erro")
-                self.__pos__+=1
-            except Exception as e:
-                # print(self.__pos__)
-                print("quebro")
-                break
-        self.__recursion__.pop()
-        self.reg=regs
-        self.reg["x"]=1
-        self.__pos__=copy
-        self.__code__=code_copy
-        # print("passou")
-        # print("usado")
-        # pula para função
-        # self.__pos__ = self.func[self.reg[any[0]]]
-        # print(self.pos)
+        self.__pos__=self.__func__[any[0]]
     def ret(self, any=None):
         # print("used")
         if any!=[]:
@@ -440,7 +422,7 @@ class pyos64:
         while self.reg["x"]:
             op,items=self.real.item_parser(xtemp[self.__pos__])
             # print("self.pos",self.__pos__)
-            getattr(self,op)(items)
+            op(items)
             self.__pos__+=1
         self.__env__[self.__din_rec__]=self.reg.copy()
         self.reg=regs
@@ -557,33 +539,7 @@ class pyos64:
         def __init__(self,tread:"pyos64"):
             self.real=tread
         def _0(self):
-            print(self.real.reg["b"])
-        def _1(self):
-            with open(self.real.reg["b"],"r")as f:
-                self.real.reg["c"]=f.read()
-        def _2(self):
-            temp=[]
-            with open(self.real.reg["b"],"r")as f:
-                while True:
-                    try:
-                        temp.append(f.read(self.real.reg["d"]))
-                    except:
-                        break
-            self.real.reg["c"]="".join(temp)
-        def _3(self):
-            with open(self.real.reg["a"],"w")as f:
-                f.write(self.real["b"])
-        def _4(self):
-            with open(self.real.reg["a"],"wb")as f:
-                f.write(self.real["b"])
-        def _5(self):
-            with open(self.real.reg["a"],"rb")as f:
-                self.real["b"]=f.read()
-        def _6(self):
-            ftext=str(self.real.reg["b"])
-            print(self.real.__mem__)
-            ftext=ftext.format(*[item[1] for item in self.real.__mem__.items()])
-            self.real.reg["c"]=ftext
+            print(self.real.reg["b"]) 
     def syscall(self,any=None):
         getattr(self.sys,f"_{self.reg['rax']}")()
         [        # try:
@@ -622,16 +578,16 @@ class pyos64:
         right = self.reg[any[1]]
         value = left - right
         # print(left,right)
-        self.ZF = int(value == 0)
-        self.NF = int(value < 0)
-        self.CF = int(left < right)
+        self.__ZF__ = int(value == 0)
+        self.__NF__ = int(value < 0)
+        self.__CF__ = int(left < right)
     def CMPstr(self,any):
         left  = str(self.reg[any[0]])
         right = str(self.reg[any[1]])
         print(f"right: {left} -- left: {right}",end="\r")
-        self.ZF = int(left == right)
-        self.NF = int(left in right)
-        self.CF = int(right in left)
+        self.__ZF__ = int(left == right)
+        self.__NF__ = int(left in right)
+        self.__CF__ = int(right in left)
     def CMPi(self, any):
         left  = self.reg[any[0]]
         right = self.reg[any[1]]
@@ -656,22 +612,22 @@ class pyos64:
         self.XNF = int(value < 0)
         self.XCF = int(left < right)
     def jz(self, any):      # jump if ZF == 1   (JE / JZ)
-        if self.ZF: 
+        if self.__ZF__: 
             self.__pos__ += any[0]
     def jnz(self, any):     # (JNE / JNZ)
-        if not self.ZF:
+        if not self.__ZF__:
             self.__pos__ += any[0]
     def jn(self, any):      # jump if NF == 1   (JL / JS)
-        if self.NF:
+        if self.__NF__:
             self.__pos__ += any[0]
     def jnn(self, any):     # (JNL / JNS)
-        if not self.NF:
+        if not self.__NF__:
             self.__pos__ += any[0]
     def jc(self, any):      # jump if CF == 1   (JB / JC)
-        if self.CF:
+        if self.__CF__:
             self.__pos__ += any[0]
     def jnc(self, any):     # (JNB / JNC)
-        if not self.CF:
+        if not self.__CF__:
             self.__pos__ += any[0]
     def jaz(self, any):     # jump if abs difference == 0
         if self.AZF:
@@ -716,21 +672,21 @@ class pyos64:
         if not self.XCF:
             self.__pos__ += any[0]
     def jl(self, any):   # signed
-        if self.NF:
+        if self.__NF__:
             self.__pos__ += any[0]
     def jg(self, any):
-        if (not self.NF) and (not self.ZF):
+        if (not self.__NF__) and (not self.__ZF__):
             self.__pos__ += any[0]
     def jle(self, any):
-        if self.NF or self.ZF:
+        if self.__NF__ or self.__ZF__:
             self.__pos__ += any[0]
     def jge(self, any):
-        if not self.NF:
+        if not self.__NF__:
             self.__pos__ += any[0]
     def halt(self,any=None):
         self.reg["x"]=0
         if self.__recursion__==[]:
-            print(str(self.reg),str(self.func))
+            print("")
     def loop(self,any):
         r,ponteiro=any
         # print(self.reg[r])
@@ -743,7 +699,39 @@ class pyos64:
             self.__pos__=pont,
             self.reg[r]-=fator
 
-class pyos16: #primeira versão
+class pyos64_async:
+    def __init__(self,tread):
+        self.reg=pyos64.__reg__(self)
+        self.__flux__={}
+        self.__tread__:kernel=tread
+        self.__async_f__=[],
+        self.__pos__=0
+        self.__cpu__=[]
+        self.__code__=[]
+        self.__programas__=[]
+    def init(self,any):
+        x=any[0]
+        for i in range(x):
+            self.__cpu__.append(pyos64(self.tread))
+    def tread(self,any):
+        op:str=any[0]
+        if op=="start":
+            nid:int=any[1]
+            size:int=any[2]
+            self.__flux__[nid]=self.__code__[self.__pos__+1:self.__pos__+2+size]
+            print(self.__flux__[nid])
+            self.__pos__+=size
+        elif op=="make":
+            nid:int=any[1]
+            size:int=any[2]
+            async def freeze():
+                def meta():
+                    for op,arg in self.__flux__[nid]:
+                        try:
+                            getattr(self.__cpu__[nid],op)(arg)
+                        except:
+                            print("error in tread",nid)
+class pyos16: #primeira versão funcional para o kernel antigo
     def __init__(self,tread):
         self.reg={
             "a":0,#
@@ -950,5 +938,5 @@ class pyos16: #primeira versão
             r,pont,fator=any
             self.__pos__=pont,
             self.reg[r]-=fator
-
-# print(pyos64.__dict__.keys())
+if __name__:
+    print(list(pyos64.__dict__.keys()))
