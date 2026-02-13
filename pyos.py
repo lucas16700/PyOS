@@ -1,5 +1,4 @@
 # from kernel import compilador
-from rich import print
 from random import randbytes,randint
 # from json import dumps, loads
 from lib import JA
@@ -14,6 +13,7 @@ from utils_grafic.surfs import surf
 import asyncio
 if __name__ =="mojang":
     from kernel import compilador as kernel # para eu editar no vs code
+version=1.0
 print("pyos booted")
 def ps(*arg,**karg):
     pass
@@ -30,7 +30,6 @@ def ps(*arg,**karg):
 #                 return func(self,__value)
 #     def set(func):
 #         def temp(self,__value):
-
 class dinamica:
     @property
     def get_init_win(self):
@@ -80,7 +79,404 @@ def debuga(func):
             print(self.__pos__)
             print(any)
     return nfunc
+
+class risc_v:
+    INSTRUCTION_PATTERNS = {
+        # FAKE i
+        "sect_0_": ["out", "out", "out", "out", "out"],
+        "label_0_": ["out", "out", "out", "out", "out"],
+
+        # I-type (rd, rs1, imm)
+        'addi':   ['out', 'in', 'in'],
+        'addiw':  ['out', 'in', 'in'],
+        'slti':   ['out', 'in', 'in'],
+        'lb':     ['out', 'mem'],     # mem = offset(rs1)
+        'lbu':    ['out', 'mem'],
+        'lh':     ['out', 'mem'],
+        'lw':     ['out', 'mem'],
+        'ld':     ['out', 'mem'],
+
+        # R-type (rd, rs1, rs2)
+        'add':    ['out', 'in', 'in'],
+        'sub':    ['out', 'in', 'in'],
+        'and':    ['out', 'in', 'in'],
+        'or':     ['out', 'in', 'in'],
+        'xor':    ['out', 'in', 'in'],
+        'sll':    ['out', 'in', 'in'],
+        'srl':    ['out', 'in', 'in'],
+        'sra':    ['out', 'in', 'in'],
+        'slt':    ['out', 'in', 'in'],
+
+        # S-type (rs2, imm(rs1)) — note: sem out!
+        'sb':     ['in', 'mem'],      # rs2 é fonte (in), mem é destino
+        'sh':     ['in', 'mem'],
+        'sw':     ['in', 'mem'],
+        'sd':     ['in', 'mem'],
+
+        # Branches (rs1, rs2, label/offset)
+        'beq':    ['in', 'in', 'label'],
+        'bne':    ['in', 'in', 'label'],
+        'blt':    ['in', 'in', 'label'],
+        'bge':    ['in', 'in', 'label'],
+
+        # Jumps
+        'jal':    ['out', 'label'],   # rd, label
+        'jalr':   ['out', 'mem'],     # rd, offset(rs1)
+
+        # U-type
+        'lui':    ['out', 'in'],      # rd, imm
+        'auipc':  ['out', 'in'],
+
+        # Pseudos
+        'li':     ['out', 'in'],
+        'la':     ['out', 'label'],
+        'mv':     ['out', 'in'],
+        'ret':    [],                 # sem args
+        'nop':    [],
+
+        # Syscall
+        "ecall":  []
+    }
+    __data_sect_need__=True
+    __inst_arr_need__=True
+    def __init__(self,tread):
+        self.tread=tread
+        self.reg=self.__reg__(self)
+        self.__code__=[]
+        self.__stack__=[]
+        self.__mem__={n:0 for n in range(128)}
+        self.__ZF__=0
+        self.__NF__=0
+        self.__CF__=0
+        self.__pos__=0
+        self._debug_=False
+        self.__func__={}
+        self.__real__:kernel=tread
+        self.__states__={}
+        #self.__graf__=self.imagem_compose(self)
+        self.__recursion__=[]
+        self.__env__={}
+        self.__ui__=JA.boot(self)
+        self.__clock__=0
+        self.__var__={}
+        self.__events__={}
+        self.__async_f__=[]
+        self.__x__=1
+        self.__labels__={}
+        self.__data__={}
+        self.__point__={}
+        self.heap_start = 0x10000000  # endereço após .data
+        self.heap_end = self.heap_start
+        self.__sections__={
+            "globl":"_start",
+            "currenct":"",
+            "section":".text",
+        }
+    class __reg__:
+        def __init__(self,tread:"risc_v"):
+            self.values={
+                a:0 for a in range(32),
+            }
+            self.real=tread
+            self.vari={
+                "x":0,
+                "a":10,
+                "s":8,
+                "t":5
+            }
+            self.history=[asizeof.asizeof(self)]
+        def __getstate__(self):
+            return self.values
+        def __setstate__(self,values):
+            self.values=values
+        def __getitem__(self,__value:str):
+            prefix=__value[0]
+            f__value=
+            try:
+                # print(f"get {__value} -> {self.values[__value]}")
+                return self.values[f__value]
+            except:
+                return 0
+                # print(f"get --> {__value}")
+                # print(__value)
+                
+        def __setitem__(self,__key,__value):
+                try:
+                    # print(f"set {__key} <- {__value}")
+                    self.values[__key]=__value
+                except:
+                    self.real.__data__[__key]=__value
+                    
+                # self.history.append(asizeof.asizeof())
+        def __repr__(self):
+            return f"internal registers:\n{self.values}"
+        def __str__(self):
+            return str(self.values)
+        def copy(self):
+            copy=self.real.__reg__(self.real)
+            copy.values=self.values.copy()
+            return copy
+    # Métodos existentes (mantive e ajustei)
+    def nop(self,any):
+        pass
+    def sect_0_(self,any): # .text | .string
+        # print(f"section {any[0]}")
+        pass
+    def label_0_(self,any): #label: | variavel: .alguma coisa
+        # print(f"label {any[0]}")
+        pass
+    def NONES_label_space(self,any=None):
+        pass
+    def li(self, any):
+        rd, imm = any[0], int(any[1])
+        self.reg[rd] = imm
+
+    def la(self, any):
+        rd, label = any[0], any[1]
+        # Assume label resolvido para endereço (ex.: de .data)
+        self.reg[rd] = label  # ou endereço virtual
+    def lb(self, any):
+        """
+        lb rd, offset(rs1)
+        any = [rd, offset, rs1]   # ex.: ['t0', 0, 'a1']
+        """
+        rd = any[0]          # registrador destino
+        offset = int(any[1][0]) # pode ser string ou int, converta
+        rs1 = any[1][0]         # registrador base
+
+        # Calcula endereço
+        base_addr = self.reg[rs1]
+        addr = base_addr + offset
+
+        # Lê 1 byte da memória
+        byte_val = self.__mem__.get(addr, 0) & 0xFF  # garante 0-255
+
+        # Extensão de sinal (signed byte → int64)
+        if byte_val & 0x80:  # bit de sinal ligado (128-255)
+            byte_val -= 256   # transforma em -128 a -1
+
+        self.reg[rd] = byte_val
+    def sb(self, any):
+        """
+        sb rs2, offset(rs1)
+        any = [rs2, offset, rs1]   # ex.: ['t0', 0, 'a1']
+        """
+        print(any)
+        rs2 = any[0]          # registrador que contém o byte a escrever
+        offset = int(any[1])
+        rs1 = any[2]          # registrador base
+
+        # Calcula endereço
+        base_addr = self.reg[rs1]
+        addr = base_addr + offset
+
+        # Pega só o byte menos significativo (0–255)
+        byte_val = self.reg[rs2] & 0xFF
+
+        # Escreve na memória
+        self.__mem__[addr] = byte_val
+    def sh(self, any):
+        rs2 = any[0]
+        offset = int(any[1])
+        rs1 = any[2]
+        addr = self.reg[rs1] + offset
+        half_val = self.reg[rs2] & 0xFFFF  # 16 bits
+        self.__mem__[addr]   = half_val & 0xFF
+        self.__mem__[addr+1] = (half_val >> 8) & 0xFF
+    def sw(self, any):
+        rs2 = any[0]
+        offset = int(any[1])
+        rs1 = any[2]
+        addr = self.reg[rs1] + offset
+        word_val = self.reg[rs2] & 0xFFFFFFFF  # 32 bits
+        for i in range(4):
+            self.__mem__[addr + i] = (word_val >> (i*8)) & 0xFF
+    def addi(self, any):
+        rd, rs1, imm = any[0], any[1], int(any[2])
+        self.reg[rd] = self.reg[rs1] + imm
+
+    def add(self, any):
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        self.reg[rd] = self.reg[rs1] + self.reg[rs2]
+
+    def lui(self, any):
+        rd, imm = any[0], int(any[1])
+        # Carrega 20 bits altos + zeros baixos
+        self.reg[rd] = (imm << 12) & 0xFFFFFFFFFFFFF000  # sign-extend se necessário
+
+    def auipc(self, any):
+        rd, imm = any[0], int(any[1])
+        # AUIPC: endereço atual + upper imm
+        self.reg[rd] = self.__pos__ + (imm << 12)
+
+    def sub(self, any):
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        self.reg[rd] = self.reg[rs1] - self.reg[rs2]
+
+    def mul(self, any):
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        self.reg[rd] = self.reg[rs1] * self.reg[rs2]  # Assumindo M extension
+
+    def div(self, any):
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        if self.reg[rs2] == 0:
+            # Trap ou erro (implemente exception)
+            print("Divisão por zero!")
+            return
+        self.reg[rd] = self.reg[rs1] // self.reg[rs2]  # signed div
+
+    def and_(self, any):  # Renomeei para and_ pois 'and' é keyword Python
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        self.reg[rd] = self.reg[rs1] & self.reg[rs2]
+
+    def or_(self, any):
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        self.reg[rd] = self.reg[rs1] | self.reg[rs2]
+
+    def xor(self, any):
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        self.reg[rd] = self.reg[rs1] ^ self.reg[rs2]
+
+    def sll(self, any):
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        self.reg[rd] = self.reg[rs1] << self.reg[rs2]
+
+    def srl(self, any):
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        self.reg[rd] = self.reg[rs1] >> self.reg[rs2]  # logical right
+
+    def sra(self, any):
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        self.reg[rd] = self.reg[rs1] >> self.reg[rs2]  # arithmetic right (preserva sinal)
+
+    def slt(self, any):
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        self.reg[rd] = 1 if self.reg[rs1] < self.reg[rs2] else 0  # signed
+
+    def sltu(self, any):
+        rd, rs1, rs2 = any[0], any[1], any[2]
+        self.reg[rd] = 1 if abs(self.reg[rs1]) < abs(self.reg[rs2]) else 0  # unsigned
+
+    def beq(self, any):
+        rs1, rs2, label = any[0], any[1], any[2]
+        if self.reg[rs1] == self.reg[rs2]:
+            self.__pos__ = self.__labels__[label]
+
+    def bne(self, any):
+        rs1, rs2, label = any[0], any[1], any[2]
+        if self.reg[rs1] != self.reg[rs2]:
+            self.__pos__ = self.__labels__[label]
+
+    def blt(self, any):
+        rs1, rs2, label = any[0], any[1], any[2]
+        if self.reg[rs1] < self.reg[rs2]:  # signed
+            self.__pos__ = self.__labels__[label]
+
+    def bge(self, any):
+        rs1, rs2, label = any[0], any[1], any[2]
+        if self.reg[rs1] >= self.reg[rs2]:
+            self.__pos__ = self.__labels__[label]
+
+    def bltu(self, any):
+        rs1, rs2, label = any[0], any[1], any[2]
+        if abs(self.reg[rs1]) < abs(self.reg[rs2]):  # unsigned
+            self.__pos__ = self.__labels__[label]
+
+    def bgeu(self, any):
+        rs1, rs2, label = any[0], any[1], any[2]
+        if abs(self.reg[rs1]) >= abs(self.reg[rs2]):
+            self.__pos__ = self.__labels__[label]
+
+    def jal(self, any):
+        rd, label = any[0], any[1]
+        self.reg[rd] = self.__pos__ + 1  # salva PC+1
+        self.__pos__ = self.__labels__[label]
+
+    def jalr(self, any):
+        rd, rs1, imm = any[0], any[1], int(any[2])
+        self.reg[rd] = self.__pos__ + 1
+        self.__pos__ = (self.reg[rs1] + imm) & ~1  # alinha para par
+
+    def ret(self, any):
+        # Pseudoinstrução: jalr x0, ra, 0
+        self.__pos__ = self.reg['ra']
+
+    def ld(self, any):
+        rd, offset, rs1 = any[0], int(any[1]), any[2]
+        addr = self.reg[rs1] + offset
+        self.reg[rd] = self.__mem__.get(addr, 0)  # 64-bit load
+
+    def sd(self, any):
+        rs2, offset, rs1 = any[0], int(any[1]), any[2]
+        addr = self.reg[rs1] + offset
+        self.__mem__[addr] = self.reg[rs2]  # 64-bit store
+
+    # Similar para lw/sw (32-bit), lh/sh (16-bit), lb/sb (8-bit)
+    def lw(self, any):
+        rd, offset, rs1 = any[0], int(any[1]), any[2]
+        addr = self.reg[rs1] + offset
+        self.reg[rd] = self.__mem__.get(addr, 0) & 0xFFFFFFFF  # sign-extend?
+
+    # ... adicione os outros loads/stores semelhantes
+
+    def fence(self, any):
+        # Barreira de memória (simples: no-op por agora)
+        pass
+
+    def ebreak(self, any):
+        # Breakpoint: pare ou debug
+        self.__x__ = 0
+        print("Ebreak: breakpoint atingido")
+
+    def ecall(self, any):
+        # Syscall baseada em a7
+        syscall_num = self.reg['a7']
+        if syscall_num == 64:  # write
+            fd = self.reg['a0']
+            buf_addr = self.reg['a1'][0]
+            count = self.reg['a2']
+            # Simule write: pegue de __mem__[buf_addr] por count bytes
+            data = ''.join(chr(self.__mem__.get(buf_addr + i, 0)) for i in range(count))
+            print(data,end="")  # ou redirecione para stdout simulado
+            self.reg['a0'] = count  # retorno = bytes escritos
+        elif syscall_num == 63:  # read
+            fd = self.reg['a0']
+            buf_addr = self.reg['a1'][0]
+            count = self.reg['a2']
+
+            if fd == 0:  # stdin simulado
+                # Simule input: use input() do Python para pedir ao usuário
+                user_input = input()[:count]  # limita ao count
+                bytes_read = len(user_input)
+
+                # Escreva na memória a partir de buf_addr
+                for i in range(bytes_read):
+                    self.__mem__[buf_addr + i] = ord(user_input[i])
+
+                self.reg['a0'] = bytes_read  # retorno = bytes lidos
+        
+            else:
+                self.reg['a0'] = -1  # erro para outros fds
+        elif syscall_num == 214:  # brk
+            new_brk = self.reg['a0']  # argumento: novo endereço desejado
+            if new_brk == 0:
+                # brk(0) retorna endereço atual do fim do heap
+                self.reg['a0'] = self.heap_end
+            else:
+                if new_brk > self.heap_end:
+                    # Estende heap (simples: só atualiza ponteiro)
+                    self.heap_end = new_brk
+                    # Opcional: preencher com zeros se quiser
+                    # for addr in range(self.heap_end, new_brk): self.__mem__[addr] = 0
+                self.reg['a0'] = self.heap_end  # retorna novo fim
+        elif syscall_num == 93:  # exit
+            self.__x__ = 0
+        else:
+            print(f"Syscall não implementada: {syscall_num}")
+                        
 class pyos64:
+    __inst_arr_need__=True
+    __data_sect_need__=False
     def __init__(self,tread):
         print("thank for :Pygame team! Linux team!\nPyOs it's running a application")
         self.reg=self.__reg__(self)
@@ -106,6 +502,7 @@ class pyos64:
         self.__var__={}
         self.__events__={}
         self.__async_f__=[]
+        self.__x__=1
     def __getstate__(self):
         current={
             "reg"           : self.reg        , 
@@ -136,7 +533,8 @@ class pyos64:
             setattr(self,key,value[key])
         self.__ui__=JA.boot(self)
         self.__graf__=self.imagem_compose(self)
-        
+    def __repr__(self):
+        return f"<pyos64 ISA {version}>\n<with high registers>\n\n::\n\n {self.reg} \n\n::\n\n<with {len(self.__code__)} lines of instruction>"
     class __back__:
         def __init__(self,tread:"pyos64"):
             self.reg=tread.reg
@@ -166,6 +564,9 @@ class pyos64:
                 "mouse_pos":[0,0]
             }
             self.real=tread
+        def __del__(self):
+            JA.pygame.quit()
+
         def __getstate__(self):
             return self.graf
         def __setstate__(self,values):
@@ -207,7 +608,6 @@ class pyos64:
                 "f":0,
                 "g":0,
                 "h":0,
-                "x":1,#
                 "r0":1,
                 "r1":10,
                 "r2":.1,
@@ -256,6 +656,8 @@ class pyos64:
             copy=self.real.__reg__(self.real)
             copy.values=self.values.copy()
             return copy
+    def mov(self,any):
+        self.reg[any[1]]=self.reg[any[0]]
     @property
     def __din_rec__(self):
         return ".".join(self.__recursion__)
@@ -349,8 +751,6 @@ class pyos64:
         self.inc(["r1"])
     def neg(self,any):
         self.reg[any[0]]-=1
-    def mov(self,any):
-        self.reg[any[1]]=self.reg[any[0]]
     def movrg(self,any):
         self.greg[any[1]]=self.reg[any[0]]
     def movgr(self,any):
@@ -684,7 +1084,7 @@ class pyos64:
         if not self.__NF__:
             self.__pos__ += any[0]
     def halt(self,any=None):
-        self.reg["x"]=0
+        self.__x__=0
         if self.__recursion__==[]:
             print("")
     def loop(self,any):
@@ -699,6 +1099,31 @@ class pyos64:
             self.__pos__=pont,
             self.reg[r]-=fator
 
+class solve:
+    def __init__(self,ins_pattern:dict,tread:pyos64|risc_v):
+        self.iset=ins_pattern
+        self.cpu=tread
+    def solve(self,params,op):
+        solved=[]
+        table=self.iset[op]
+        for i,param in enumerate(params):
+            if isinstance(param,list):
+                solved.append(param)
+                continue
+            try:
+                match table[i]:
+                    case "in":
+                        solved.append(self.cpu.reg[param])
+                    case "out":
+                        solved.append(param)
+                    case "mem":
+                        solved.append(self.cpu.__mem__[param])
+                    case "label":
+                        # print("label getted",self.cpu.__pointers__)
+                        solved.append(self.cpu.__point__[param])
+            except:
+                print(f"'{op}' :: has too many args:: {params}")
+        return solved
 class pyos64_async:
     def __init__(self,tread):
         self.reg=pyos64.__reg__(self)
@@ -938,5 +1363,5 @@ class pyos16: #primeira versão funcional para o kernel antigo
             r,pont,fator=any
             self.__pos__=pont,
             self.reg[r]-=fator
-if __name__:
-    print(list(pyos64.__dict__.keys()))
+# if __name__:
+#     print(list(pyos64.__dict__.keys()))

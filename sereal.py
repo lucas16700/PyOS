@@ -1,7 +1,26 @@
-from math import log 
+from math import log
 import gzip
+from hashlib import sha256
+from random import randbytes
+class inode:
+    def __init__(self,tip:int=0,aloc:int=0,offset:int=0):
+        self.b0=tip
+        self.b1=aloc
+        self.b2=offset
+        self.sub=0
+        self.size=0
+    def __len__(self):
+        return len(generator([self]).dump())-1
+class layout:
+    def __init__(self,dict_layout:dict):
+        self.value=dict_layout["value"]
+        self.style=dict_layout["style"]
+        self.type=dict_layout["type"]
+        self.events=dict_layout["events"]
+        self.child={key:layout(dict_layout["childs"][key])for key in dict_layout["childs"]}
+    
 def aux(file):
-    with open(file,"rb")as f:
+    with gzip.open(file,"rb")as f:
         while True:
             bt=f.read(1)
             if not bt:
@@ -11,39 +30,52 @@ class generator:
     def __init__(self,parans=[]):
         self.paran=parans
         # self.gen_table[gen](self)
-    def dump(self,file):
+    def dump(self,file:str=None,debug=False):
         self.start=self.__0__(self.paran)
-        with open(file,"wb")as f:
-            f.write(self.start)
+        if isinstance(file,str):
+            with open(file,"wb")as f:
+                f.write(gzip.compress(self.start))
+        # print(self.start.count(b"\x00")/len(self.start)*100)
+        return self.start
         # print(gzip.compress(self.start))
     def revert(self,file):
         fx=aux(file)
-        size=int.from_bytes(b"".join([next(fx) for nada in range(4)]))
+        size=int.from_bytes(b"".join([next(fx) for nada in range(8)]))
         # print(size)
         vals=[]
         for index in range(size):
             tipo=int.from_bytes(next(fx))
-            size2=int.from_bytes(b"".join([next(fx) for nada in range(4)]))
+            size2=int.from_bytes(b"".join([next(fx) for nada in range(8)]))
             rawdata=b"".join([next(fx) for nada in range(size2)])
             vals.append(self.__1__(tipo,rawdata))
         return vals
+    def reverts(self,data):
+        fx=iter(data)
+        size=int.from_bytes(b"".join([next(fx) for nada in range(48)]))
+        # print(size)
+        vals=[]
+        for index in range(size):
+            tipo=int.from_bytes(next(fx))
+            size2=int.from_bytes(b"".join([next(fx) for nada in range(8)]))
+            rawdata=b"".join([next(fx) for nada in range(size2)])
+            vals.append(self.__1__(tipo,rawdata))
+        return vals
+    
     def __0__(self,paran): #python types: str , int, list, dict
-        ff=len(paran).to_bytes(4)
+        ff=len(paran).to_bytes(8)
         for para in paran:
             # print(paran,para)
             temp=[]
             if isinstance(para,str):
                 temp.append(00)
-                temp.append(para.encode())
+                size=len(para)
+                temp.append((~int.from_bytes(para.encode())).to_bytes(size,signed=True))
             elif isinstance(para,bool):
                 temp.append(1)
                 temp.append(para.to_bytes())
             elif isinstance(para,int):
                 temp.append(2)
-                if para >256:
-                    temp.append(para.to_bytes(int(log(para,256)+1)))
-                else:
-                    temp.append(para.to_bytes())
+                temp.append(para.to_bytes(8))
             elif isinstance(para,list):
                 temp.append(3)
                 temp.append(self.__0__(para))
@@ -56,17 +88,51 @@ class generator:
             elif isinstance(para,tuple):
                 temp.append(5)
                 temp.append(self.__0__(para))
+            elif isinstance(para,bytes):
+                temp.append(6)
+                temp.append(para)
+            elif isinstance(para,inode):
+                temp.append(255)
+                temp.append(self.__0__([para.b0,para.b1,para.b2,para.sub]))
+            elif isinstance(para,layout):
+                temp.append(254)
+                temp.append(self.__0__([para.child,para.events,para.style,para.type,para.value]))
+            elif isinstance(para,type(None)):
+                temp.append(7)
+                temp.append(bytes(1))
             else:
                 print(f"not implemented :: {type(para)} ::\n{paran}!\nYet...")
                 # raise TypeError(type(para))
-            temp.insert(1,len(temp[1]).to_bytes(4))
+            temp.insert(1,len(temp[1]).to_bytes(8))
             tp=bytes([temp[0]])
             temp[0]=tp
             ff+=b"".join(temp)
         return ff
     def __1__(self,tipo,bits:bytes):
         if tipo==0:
-            return bits.decode()
+            return (~int.from_bytes(bits,signed=True)).to_bytes(len(bits),signed=True).decode()
+        if tipo==255:
+            vals=[]
+            fx=iter(bits)
+            # size=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(8)]))
+            for index in range(4):
+                tipo=next(fx)
+                size2=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(8)]))
+                rawdata=bytes([next(fx) for nada in range(size2)])
+                vals.append(self.__1__(tipo,rawdata))
+            return inode(*vals)
+        if tipo==254:
+            vals=[]
+            fx=iter(bits)
+            # size=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(8)]))
+            for index in range(5):
+                tipo=next(fx)
+                size2=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(8)]))
+                rawdata=bytes([next(fx) for nada in range(size2)])
+                vals.append(self.__1__(tipo,rawdata))
+            return layout(*vals)
+        if tipo==6:
+            return bits
         if tipo==1:
             return bool.from_bytes(bits)
         if tipo==2:
@@ -74,20 +140,22 @@ class generator:
         if tipo==3:
             vals=[]
             fx=iter(bits)
-            size=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(4)]))
+            size=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(8)]))
             for index in range(size):
                 tipo=next(fx)
-                size2=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(4)]))
+                size2=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(8)]))
                 rawdata=bytes([next(fx) for nada in range(size2)])
                 vals.append(self.__1__(tipo,rawdata))
             return vals
+        if tipo==7:
+            return None
         if tipo==4:
             vals=[]
             fx=iter(bits)
-            size=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(4)]))
+            size=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(8)]))
             for index in range(size):
                 tipo=next(fx)
-                size2=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(4)]))
+                size2=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(8)]))
                 rawdata=bytes([next(fx) for nada in range(size2)])
                 vals.append(self.__1__(tipo,rawdata))
             dt={}
@@ -98,10 +166,10 @@ class generator:
         if tipo==5:
             vals=[]
             fx=iter(bits)
-            size=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(4)]))
+            size=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(8)]))
             for index in range(size):
                 tipo=next(fx)
-                size2=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(4)]))
+                size2=int.from_bytes(b"".join([bytes([next(fx)]) for nada in range(8)]))
                 rawdata=bytes([next(fx) for nada in range(size2)])
                 vals.append(self.__1__(tipo,rawdata))
             return tuple(vals)

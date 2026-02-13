@@ -1,5 +1,4 @@
 import re,pygame,json,asyncio,os
-from rich import print
 def primo(x):
     a=[2]
     for i in range(2,x+1):
@@ -263,6 +262,7 @@ class Widget:
         for key in childs:
             tip=childs[key].pop("type")
             nwid[key]=getattr(UI,tip)(**childs[key])
+            childs[key]["type"]=tip
         return nwid
     
 class UI:
@@ -659,6 +659,7 @@ class boot:
             tip=body[key].pop("type")
             self.elements[key]=getattr(UI,tip)(**body[key])
             x=asyncio.create_task(self.elements[key].update())
+            body[key]["type"]=tip
             await x
         x=size[0]/2-400
         y=size[1]/2-400
@@ -702,6 +703,8 @@ class boot:
     async def sytle_change(self,obj,key,nvalue):
         self.elements[obj].style[key]=nvalue
         self.elements[obj].update()
+    # def __del__(self):
+    #     print("JA gui quited")
 # teste=boot((1200,800),corpo_base)
 # while True:
 #     teste.event_manager()

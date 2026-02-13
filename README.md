@@ -1,6 +1,19 @@
 Sistema Operacional Baseado em python
 ====
 desenvolvido para performar programas em [*asm*](#atualmente-conta-com-as-seguinte-instruções) baseado em ISA virutal, como em um emulador , porem com aplicações praticas. E um script para automações , o [`JA Script`](#ja-script)
+# pyOS-V
+
+Esse projeto inclui um Emulador de RISC-V em Python para fins educacionais, pesquisa e desenvolvimento de sistemas operacionais.
+
+**Aviso importante**  
+Esta ferramenta é fornecida "como está", sem garantias de qualquer tipo.  
+O autor **não se responsabiliza** por qualquer uso, dano, perda de dados ou violação de leis causado pelo uso desta biblioteca.  
+Você é o único responsável pelo conteúdo e binários que executar.  
+Não use `pyos64/pyos16/riscv` para atividades ilegais, violação de direitos autorais ou qualquer propósito que contrarie a legislação aplicável.
+
+Uso recomendado: aprendizado de arquitetura de computadores, desenvolvimento de SOs hobby, testes de assembly RISC-V.
+
+esse software foi desenvolvido apartir do sonho de programar um SO, sem precisar mudar de linguagem , ou fazer grandes estudos para boot, graficos , etc... Usando uma base Linux , como TinyCore linux, Arch linux, Debian , etc , é possivel 'hospedar' seu SO sobre essas distros
 
 ## atualmente conta com as seguinte instruções:
 
