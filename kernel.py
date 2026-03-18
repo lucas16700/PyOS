@@ -1,8 +1,10 @@
 import shlex, asyncio,traceback as tcb,pickle,gzip
 from pympler import asizeof
-from lib.JA import parser as jpass
+from lib.JA import parser as jpass,pygame
 from sereal import generator
+from parser import riscv as risco_, pyos64 as pyos_
 import builtins
+# from plot_debug import imprime
 from rich import print as rich_print
 builtins.print = rich_print
 builtins.builtins=builtins
@@ -19,6 +21,7 @@ with open("/Users/lucaschaves/projeto_os/log.txt","w")as f:
         f.write(str(argv))
 
 from pyos import pyos16,pyos64,risc_v,solve as sv
+pygame.quit()
 class compilador:
     module_=False
     def __init__(self,nome:str,arch:str="pyos64"):
@@ -28,6 +31,7 @@ class compilador:
         self.save=[]
         self.cpu:pyos64|risc_v=self.paleta[arch](self)
         self.nvram=None
+        self.history=[]
     # paleta={
     #     b"pyos":{
     #         "mov":pyos.mov,
@@ -51,64 +55,77 @@ class compilador:
         "@":b"\x04"     #img
     }
     def item_parser(self,code,save=False):
-        op:str=code[0]
+        try:
+            op:str=code[0]
+        except:
+            print(code,"sem nada")
+            return "nop",[]
         items=[]
         if op.startswith(";")or op==";":
-            return getattr(self.cpu,"nop"),[]
+            return "nop",[]
+        if op.startswith("#")or op=="#":
+            return "nop",[]
             # print(tread.pos)
             # print(actin[tread.pos])
-        #feito para ISA do pyos64 que ja esta funcional 
+        #feito para ISA do pyos64 que ja esta funcional
+        xcode=[]
+        temp=""
+        print(code[1:])
         for i in code[1:]:
-            i:str
+            
+            if i.startswith("#")or i=="#":
+                break
             if i.startswith(";")or i==";":
                 break
-            if i.endswith(","):
-                i=i.removesuffix(",")
-            
-            if i.startswith(","):
-                i=i.removeprefix(",")
-            elif "(" in i and i.endswith(")"):
-                print(i)
-                bruto=jpass(i).pre()
-                offset=bruto[0]
-                rs1 = bruto[1][0]
-                items.append([offset,rs1])
+            if not temp==".string" or op!=".string":
+                # print(temp,"is not .string",i)
+                if "," in i and not (", " in i or " ," in i):
+                    [xcode.append(x) for x in i.split(",") if len(x)>0]
 
-            elif i.startswith("r"):
-                ni=i.replace("r","")
-                items.append(jpass(ni).pre())# converter S-Expression para lista
-            elif i.startswith("$"):
-                ni=i.replace("$","")
-                print(i)
-                try:
-                    items.append(int(ni))
-                except:
-                    items.append(ni)
-                # print("used")
+                elif i.endswith(",") or i.startswith(","):
+                    xcode.append(i.replace(",",""))
+                
+                else:
+                    xcode.append(i)
+            else:
+                print("e .strings",f"string: {code[1:]}")
+                xcode.append(i)
+            temp=i
+        print("xcode from",xcode)
+        temp=""
+        for i in xcode:
+            i:str
+            # print("parametro ",i, "sendo parseado")
+            if i == "zero":
+                items.append(0)
+            elif "(" in i and ")" in i and op!=".string":
+                
+                bruto=jpass(i).pre()
+                print(bruto,"brtuo  ",temp)
+                for itemx in bruto:
+                    if isinstance(itemx,list):
+                        for itemy in itemx:
+                            items.append(itemy)
+                    else:
+                        items.append(itemx)
             
-            elif i.startswith("!"):
-                ni=i.replace("!","")
-                items.append(bool(ni))
-            elif i.startswith("#"):
-                ni=i.replace("#","")
-                items.append(ni)
-            elif i.startswith("@"):
-                ni=i.replace("@","")
-                items.append(ni)
+
+            # elif i.startswith("r"):
+            #     ni=i.replace("r","")
+            #     items.append(jpass(ni).pre())# converter S-Expression para lista
             else:
                 items.append(i)
+            temp=i
         if save:
             self.save.append((op,items))
-        if op.startswith("."):
+        if op.endswith(":"):
             items=[op]+items
-            return getattr(self.cpu,"sect_0_"),items
-        elif op.endswith(":"):
+            return "label_0_",items
+        elif op.startswith("."):
             items=[op]+items
-            return getattr(self.cpu,"label_0_"),items
+            return "sect_0_",items
         print(op)
-        if op.startswith(";") or op==";":
-            return getattr(self.cpu,"NONES_label_space"),[]
-        return getattr(self.cpu,op),items
+        return op,items
     def str2code(self,code:str):
         code=str(code)
         paciente=code.splitlines()
@@ -119,20 +136,15 @@ class compilador:
                 tratado.append("pss")
             ic= ic.split(";")[0]
             if ic and ic!="":
-                if ">" in ic:
-                    tratado.append("pss")
-                else:
-                # print("ic :",ic)
-                    tratado . append(ic)
+                tratado . append(ic)
         return [self.item_parser(shlex.split(line)) for line in tratado]
     def sections_serial(self,secs:list):
         print("partitioning",[x[0] for x in secs].count(self.cpu.NONES_label_space))
         index=0
         nsect=[]
-        mode=".text"
+        mode=".data"
         code=[]
         labels={}
-        vars={}
         temp=None
         size=0
         offset=0
@@ -141,21 +153,36 @@ class compilador:
                 nsect.append(line)
         data_pos=0
         final=[]
+        page=4096
+        mod={
+            ".data":0,
+            ".rodata":page,
+            ".bss":page*2
+            }
+        types={
+
+        }
+        rcha={
+            "@object":".data",
+            "@function":".text"
+        }
+        globl=None
+        lens={}
+        last_globl=""
         for i,liner in enumerate(nsect):
             op,args=liner
-            print("mode : ",mode)
-            if op==self.cpu.label_0_:
+            
+            print("mode : ",mode,op,args)
+            if op=="label_0_":
+                mode=types.get(args[0].removesuffix(":"),mode)
                 if mode==".text":
-                    labels[args[0].removesuffix(":")]=i
-                elif mode in (".data", ".rodata", ".bss"):
+                    nname=args[0].removesuffix(":")
+                    final.append(["label_0_",[nname]])
+                    labels[nname]=len(final)-1
+                elif mode in (".data", ".rodata", ".bss",".sdata", ".srodata", ".sbss"):
                     print(f"mode {mode}, with args {args}")
-                    vars[args[0].removesuffix(":")]=[data_pos,0]
-                    if len(args)==1:
-
-                        temp=args[0].removesuffix(":")
-                        size=0
-                        offset=data_pos
-                    elif len(args)>1:
+                    labels[args[0].removesuffix(":")]=data_pos
+                    if len(args)>1:
                         if args[1] == ".word":
                             for val_str in args[2:]:
                                 val = int(val_str)
@@ -176,7 +203,11 @@ class compilador:
                             data_pos += 1
                         elif args[1] == ".byte":
                             for val_str in args[2:]:
-                                self.cpu.__mem__[data_pos] = int(val_str) & 0xFF
+                                val_str:str
+                                if val_str.startswith("0x"):
+                                    self.cpu.__mem__[data_pos] = int(val_str,16) & 0xFF
+                                else:
+                                    self.cpu.__mem__[data_pos] = int(val_str) & 0xFF
                                 data_pos += 1
                         elif args[1] == ".space":
                             size = int(args[2])
@@ -185,8 +216,14 @@ class compilador:
                         elif args[1] == ".align":
                             align = 1 << int(args[2])
                             data_pos = (data_pos + align - 1) & ~(align - 1)
-                        vars[args[0].removesuffix(":")][1]=data_pos-vars[args[0].removesuffix(":")][0]
-            elif op==self.cpu.sect_0_:
+                        elif args[1] == ".type":
+                            print("types seted",args[2:])
+                            types[args[2]]=rcha[args[3]]
+                        else:
+                            print("nothing happened")
+                        # vars[args[0].removesuffix(":")][1]=data_pos-vars[args[0].removesuffix(":")][0]
+            elif op=="sect_0_":
+                
                 if args[0]==".section":
                     mode=args[1]
                     print(args)
@@ -197,7 +234,7 @@ class compilador:
                     else:
                         mode=args[0]
                     print("fmode ",mode)
-                elif mode in (".data", ".rodata", ".bss"):
+                elif mode in (".data", ".rodata", ".bss",".sdata", ".srodata", ".sbss"):
                     if args[0] == ".word":
                         for val_str in args[1:]:
                             val = int(val_str)
@@ -205,7 +242,11 @@ class compilador:
                                 self.cpu.__mem__[data_pos + i] = (val >> (i*8)) & 0xFF
                             data_pos += 4
                     elif args[0] == ".dword":
-                        val = int(args[1])
+                        try:
+                            val = int(args[1])
+                        except:
+                            # print(labels)
+                            val = eval(args[1],labels)
                         for i in range(8):
                             self.cpu.__mem__[data_pos + i] = (val >> (i*8)) & 0xFF
                         data_pos += 8
@@ -219,63 +260,97 @@ class compilador:
                         data_pos += 1
                     elif args[0] == ".byte":
                         for val_str in args[1:]:
-                            self.cpu.__mem__[data_pos] = (int(val_str) & 0xFF).to_bytes(1)
+                            if val_str.startswith("0x"):
+                                self.cpu.__mem__[data_pos] = (int(val_str,16) & 0xFF)
+                            else:
+                                self.cpu.__mem__[data_pos] = (int(val_str) & 0xFF)
                             data_pos += 1
                     elif args[0] == ".space":
                         size = int(args[1])
                         data_pos += size  # só avança (ou preenche com 0 se quiser)
                     # .align N
+                    elif args[0] == ".globl":
+                        last_globl=args[1]
                     elif args[0] == ".align":
                         align = 1 << int(args[1])
                         data_pos = (data_pos + align - 1) & ~(align - 1)
-                    if temp:
-                        vars[temp][1]=data_pos-vars[temp][1]
-            if mode==".text":
+                    elif args[0] == ".type":
+                        print("types seted*")
+                        types[args[1]]=rcha[args[2]]
+                    else:
+                        print("nothing happened")
+                    # if temp:
+                    #     vars[temp][1]=data_pos-vars[temp][1]
+            elif mode==".text":
+                print(f".text code: {[op,args]}")
                 final.append([op,args])
+            elif mode in (".data",".rodata",".bss"):
+                if "=" in args:
+                    args:list
+                    evo = " ".join(args[1:])
+                    evo=evo.replace(".",str(data_pos))
+                    labels[op]=eval(evo,labels)
+                    
+        if last_globl!="":
+            self.cpu.__pos__=labels[last_globl]
+            self.cpu.globl=self.cpu.__pos__
         # nsect=[]
         # for line in final:
         #     if line[0]!= self.cpu.NONES_label_space:
         #         nsect.append(line)
+        try:
+            labels.pop('__builtins__')
+        except:
+            pass
+        print(types)
         print("final result############")
-        print(self.cpu.__mem__,vars,nsect)
+        print(labels,list(enumerate(final)))
         print("end of final code#######")
-        return final,labels,vars # retorna secs , porque ainda não sei o que retornar , estou na duvida entre remover data completamente , ja que essa sessão vai ficar no em self.__data__ que é escrita junto com o binario, e na leitura , tudo o que estiver em data, vai ser definido
-    async def run(self,code:str|list,save=True,inject:dict=None,parser=False):
+        return final,labels # retorna secs , porque ainda não sei o que retornar , estou na duvida entre remover data completamente , ja que essa sessão vai ficar no em self.__data__ que é escrita junto com o binario, e na leitura , tudo o que estiver em data, vai ser definido
+    async def run(self,code:str|list,save=True,inject:dict=None,parser=False,reading=False):
         # self.cpu:pyos64=compilador.paleta[self.sig](self)
         # print(paciente)
-        tratado=[]
-        if isinstance(code,str):
-            paciente=code.splitlines()
-            for ic in paciente:
-                if ic and ic!="":
-                    if ">" in ic:
-                        tratado.append("pss")
-                    else:
-                    # print("ic :",ic)
+        if not reading:
+            print("nao estou lendo")
+            tratado=[]
+            if isinstance(code,str):
+                paciente=code.splitlines()
+                for ic in paciente:
+                    if ic and ic!="":
                         tratado . append(ic)
-            self.cpu.__code__=[self.item_parser(shlex.split(line),True) for line in tratado]
+                self.cpu.__code__=[self.item_parser(shlex.split(line),True) for line in tratado]
+                
+            else:
+                self.cpu.__code__=code
+            #         print(key,"injected",inject[key])
+            #     print(inject)
+            # print("injet",self.module_)
+            if self.module_ and inject:
+                self.nvram=inject.copy( )
+                for key in inject:
+                        self.cpu.reg[key]=inject[key]
+            if self.cpu.__data_sect_need__:
+                self.cpu.__code__,self.cpu.__labels__=self.sections_serial(self.cpu.__code__)
+            # print(self.cpu.__code__)
             
+            
+            # print(self.cpu.__code__)
+            self.cpu.__code__=[[getattr(self.cpu,op),arg] for op,arg in self.cpu.__code__]
+            if parser:
+                return
         else:
             self.cpu.__code__=code
-        #         print(key,"injected",inject[key])
-        #     print(inject)
-        # print("injet",self.module_)
-        if self.module_ and inject:
-            self.nvram=inject.copy( )
-            for key in inject:
-                    self.cpu.reg[key]=inject[key]
-        if self.cpu.__data_sect_need__:
-            self.cpu.__code__,self.cpu.__labels__,self.cpu.__point__=self.sections_serial(self.cpu.__code__)
-        # print(self.cpu.__code__)
-        if parser:
-            return
-        print("sected need",self.cpu.__data_sect_need__)
+        # print("sected need",self.cpu.__data_sect_need__)
         if self.cpu.__inst_arr_need__:
-            self.sv=sv(self.cpu.INSTRUCTION_PATTERNS,self.cpu)
+            self.sv=self.cpu.__solver__(self.cpu.INSTRUCTION_PATTERNS,self.cpu)
         else:
             self.sv=None
+        self.history_len=0
+        if not self.cpu.__pos__:
+            self.cpu.__pos__=0
+        # print(self.cpu.__code__)
         while self.cpu.__x__:
-                [
+            [
             # print(actin)
             # print(actin[1:])
             # items=[]
@@ -306,12 +381,18 @@ class compilador:
             #         print(f"OLD : {tread.reg[items[-1]]}")
             # print(tread.__code__[tread.__pos__])
                 ]
-
+            try:
+                # print("linha:",self.cpu.__code__[self.cpu.__pos__])
+                # print("linha rodada: ",self.cpu.__pos__)
                 op,items=self.cpu.__code__[self.cpu.__pos__]
+
+                # self.history.append([op.__name__,items])
                 if not self.sv:
                     op(items)
                 else:
                     op(self.sv.solve(items,op.__name__))
+                # self.history_len+=1
+                # self.history.append([vv for vv in self.cpu.reg.values.values()])
                 temp=[]
                 for i in self.cpu.__async_f__:
                     # print(i)
@@ -338,7 +419,21 @@ class compilador:
                     self.cpu.__pos__+=1
                 except:
                     continue
-        
+            except KeyboardInterrupt:
+                print("killed")
+                # imprime(iter(self.history))
+                with open("logmem.txt","w")as f:
+                    f.write(bytes(self.cpu.__mem__.r).hex())
+                break
+            except:
+                print("error ocurred")
+                print(self.cpu.__pos__)
+                raise
+        memoria=bytes(self.cpu.__mem__.r)
+        print(f"final memory ({len(self.cpu.__mem__)} Bytes): {memoria[:512]} :: {memoria[-32:]}\nlabels:{self.cpu.__labels__}")
+                # print(f"final memory ({len(self.cpu.__mem__)} Bytes): {len(self.cpu.__mem__)-list(self.cpu.__mem__.values()).count(0)}\npointers:{self.cpu.__point__}\nlabels:{self.cpu.__labels__}")
+        # print("final regis by line")
+        # print(self.history)
         if save:
             # print(tread.func)
             return self.cpu.__code__,self.cpu.__func__
@@ -370,22 +465,40 @@ class compilador:
         # print(fxop)
         for op,ac in self.cpu.__code__:
             fcode.append(fxop.index(op.__name__))
-        code_part=[pargs,fxop,fcode,self.nvram,self.cpu.__mem__,self.sig.decode(),self.cpu.__point__,self.cpu.__labels__]
+        code_part=[pargs,
+                   fxop,
+                   fcode,
+                   self.nvram,
+                   self.cpu.__mem__,
+                   self.sig.decode(),
+                   self.cpu.__labels__,
+                   self.cpu.globl
+                ]
         gen=generator(code_part)
-        # print(code_part)
-        with gzip.open(file,"wb")as f:
+        print("pargs")
+        print(pargs)
+        with open(file,"wb")as f:
+            
             f.write(gen.dump(True))
     def read(self,file):
         gen=generator(None)
-        pargs,fxop,fcode,nvram,self.cpu.__mem__,self.sig,self.cpu.__point__,self.cpu.__labels__=gen.revert(file)
+        reverses=gen.revert(file)
+        # print(reverses[0])
+        # print("reversed things")
+        pargs,fxop,fcode,nvram,__mem__,self.sig,__labels__,__pos__=reverses
         self.cpu=self.paleta[self.sig](self)
         self.sig=self.sig.encode()
+        self.cpu.__pos__=__pos__
+        self.cpu.__mem__=__mem__
+        self.cpu.__labels__=__labels__
         code=[]
-        print(nvram)
+        # print("codigo",fcode)
+        # print(nvram)
         for i,index in enumerate(fcode):
             code.append(
                 [getattr(self.cpu,fxop[index]),pargs[i]]
             )
+        # print(code)
         return [code,nvram]
     def start(self,bin,funcs):
         tread=compilador.paleta[self.sig](self)
@@ -437,65 +550,71 @@ class compilador:
     #     except:
     #         print("cpu killed")
 if __name__ == "__main__":
-    teste= compilador("codigo")
-    if ".bin" in argv[1]:
-        with open(argv[1],"rb")as f:
-            app=teste.read(f.read())
-            teste.start(*app)
-    elif "r" in argv:
-        with open(argv[1],"r")as f:
-            asyncio.run(teste.run(f.read()))
-        # import matplotlib.pyplot  as mtp
-        # mtp.plot(range(len(teste.cpu.reg.history)),teste.cpu.reg.history)
-        # mtp.show()
-    elif "r-" in argv:
-        compilador.module_=True
-        layout={
-    "main":{
-        "type":"Box",
-        "value":"",
-        "style":{
-            "size":[200,140],
-            "position":[20,50]
-        },
-        "child":{
-            "texto":{
-                "type":"TextBox",
-                "value":"programa iniciado",
-                "style":{
-                    "color":[255,255,255],
-                    "background":[255,255,255,255],
-                },
-                'events':{
-                    'hover_leave':{
-                        "script": (("change_style" ,"background", [100, 100, 100, 255]),
-                                   ("change_style" ,"color", [0, 0, 0, 255])),
-                        "JIT": True
-                    },
-                    'hover_enter':{
-                        "script": (("change_style" ,"background", [255, 255, 255, 255]),
-                                   ("change_style" ,"color", [0, 0, 0, 255])),
-                        "JIT": True
-                    }
-                }
-            }
-        }
-    }
-}
-        with open(argv[1],"r")as f:
-            asyncio.run(teste.run(f.read(),inject={"corpo":layout},parser=True))
-        teste.write(argv[-1])
-    elif "riscv" in argv:
+    # teste= compilador("codigo")
+    if "riscv" in argv:
         teste=compilador("programa","riscv")
         with open(argv[1],"r")as f:
-            asyncio.run(teste.run(f.read(),parser=False))
-        teste.write(argv[-1])
+            lido=f.read()
+        temp=risco_(lido,teste.cpu)
+        # print(valores)
+        # asyncio.run(teste.run(lido,parser=True))
+        # teste.write(argv[-1])
+        temp.init()
+        teste.cpu.__mem__=temp.__memory__
+        teste.cpu.__labels__=temp.__labels__
+        print([(x[0],[x[1][0].__name__,x[1][1]]) for x in enumerate(temp.__code__)])
+        asyncio.run(teste.run(temp.__code__,parser=False,reading=True))
+    elif "riscv-c" in argv:
+        
+        teste=compilador("programa","riscv")
+        with open(argv[1],"r")as f:
+            lido=f.read()
+        # valores=lx(lido,True)
+        temp=risco_(lido)
+        # print(valores)
+        # asyncio.run(teste.run(lido,parser=True))
+        # teste.write(argv[-1])
+        temp.init()
+        print(temp.__labels__)
+            # print(teste.save)
+    elif "pyos" in argv:
+        teste=compilador("programa","pyos64")
+        with open(argv[1],"r")as f:
+            lido=f.read()
+        temp=pyos_(lido,teste.cpu)
+        # print(valores)
+        # asyncio.run(teste.run(lido,parser=True))
+        # teste.write(argv[-1])
+        print("executou")
+        temp.init()
+        teste.cpu.__mem__=temp.__memory__
+        teste.cpu.__labels__=temp.__labels__
+        print([(x[0],[x[1][0].__name__,x[1][1]]) for x in enumerate(temp.__code__)])
+        print(temp.__code__)
+        print(temp.__high__)
+        teste.cpu.__high__=temp.__high__
+        teste.cpu.__lasts__=temp.__last_data__
+        asyncio.run(teste.run(temp.__code__,parser=False,reading=True))
+    elif "pyos-c" in argv:
+        
+        teste=compilador("programa","pyos64")
+        with open(argv[1],"r")as f:
+            lido=f.read()
+        # valores=lx(lido,True)
+        temp=pyos_(lido)
+        # print(valores)
+        # asyncio.run(teste.run(lido,parser=True))
+        # teste.write(argv[-1])
+        temp.init()
+        print(temp.__labels__)
             # print(teste.save)
     elif "serial" in argv:
+        teste=compilador("programa")
         teste.module_=True
         code,nv=teste.read(argv[1])
-        asyncio.run(teste.run(code,inject=nv))
+        asyncio.run(teste.run(code,inject=nv,reading=True))
     elif "rvserial" in argv:
+        teste=compilador("programa","riscv")
         teste.module_=True
         code,nv=teste.read(argv[1])
         asyncio.run(teste.run(code,inject=nv))

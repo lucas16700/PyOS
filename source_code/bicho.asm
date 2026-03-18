@@ -1,26 +1,12 @@
+.data
+:parada:
+.string "sistema"
+.byte 10
+parada_len = . - parada
 
-mov 9 rgx
-xcall
-mov 6 rgx
-mov 8 rgx
-xcall $255 $255 $255
-mov 6 rgx
-xcall $10 $10 "#snake"
-xcall $10 $10 "#maca"
-
->"inicia a malandragem"
-point "#main"
-mov 1 rgx
-xcall
-mov 4 rgx
-xcall
-CMP ist $0
-jnz $1
+.code
+mov r0 1
+mov r1 parada
+mov r2 parada_len
+pycall r0 1 r1 r2
 halt
-mov 8 rgx
-xcall $255 $255 $255
-mov 7 rgx
-xcall "#snake" $400 $300
-mov $0 rgx 
-xcall
-loop_p "#main"

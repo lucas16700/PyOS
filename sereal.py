@@ -1,7 +1,25 @@
 from math import log
 import gzip
-from hashlib import sha256
-from random import randbytes
+# from hashlib import sha256
+# from random import randbytes
+import numpy as np
+class __mems__:
+        def __init__(self,size):
+            self.r=np.zeros(size, dtype=np.uint8)
+            self.r
+        def __getitem__(self,__key):
+            return self.r[__key]
+        def __setitem__(self,__key,__value):
+            self.r[__key]=__value
+        def get(self,key,default=0):
+            try:
+                return self.r[key]
+            except:
+                return default
+        def __len__(self):
+            return len(self.r)
+        def values(self):
+            return self.r
 class inode:
     def __init__(self,tip:int=0,aloc:int=0,offset:int=0):
         self.b0=tip
@@ -18,14 +36,22 @@ class layout:
         self.type=dict_layout["type"]
         self.events=dict_layout["events"]
         self.child={key:layout(dict_layout["childs"][key])for key in dict_layout["childs"]}
-    
+zipado=False
 def aux(file):
-    with gzip.open(file,"rb")as f:
-        while True:
-            bt=f.read(1)
-            if not bt:
-                break
-            yield bt
+    if zipado:
+        with gzip.open(file,"rb")as f:
+            while True:
+                bt=f.read(1)
+                if not bt:
+                    break
+                yield bt
+    else:
+        with open(file,"rb")as f:
+            while True:
+                bt=f.read(1)
+                if not bt:
+                    break
+                yield bt
 class generator:
     def __init__(self,parans=[]):
         self.paran=parans
@@ -51,13 +77,13 @@ class generator:
         return vals
     def reverts(self,data):
         fx=iter(data)
-        size=int.from_bytes(b"".join([next(fx) for nada in range(48)]))
+        size=int.from_bytes(bytes([next(fx) for nada in range(8)]))
         # print(size)
         vals=[]
         for index in range(size):
-            tipo=int.from_bytes(next(fx))
-            size2=int.from_bytes(b"".join([next(fx) for nada in range(8)]))
-            rawdata=b"".join([next(fx) for nada in range(size2)])
+            tipo=int.from_bytes(bytes([next(fx)]))
+            size2=int.from_bytes(bytes([next(fx) for nada in range(8)]))
+            rawdata=bytes([next(fx) for nada in range(size2)])
             vals.append(self.__1__(tipo,rawdata))
         return vals
     
@@ -69,7 +95,7 @@ class generator:
             if isinstance(para,str):
                 temp.append(00)
                 size=len(para)
-                temp.append((~int.from_bytes(para.encode())).to_bytes(size,signed=True))
+                temp.append((int.from_bytes(para.encode())).to_bytes(size,signed=True))
             elif isinstance(para,bool):
                 temp.append(1)
                 temp.append(para.to_bytes())
@@ -100,6 +126,9 @@ class generator:
             elif isinstance(para,type(None)):
                 temp.append(7)
                 temp.append(bytes(1))
+            elif isinstance(para,__mems__):
+                temp.append(253)
+                temp.append(bytes(para.r))
             else:
                 print(f"not implemented :: {type(para)} ::\n{paran}!\nYet...")
                 # raise TypeError(type(para))
@@ -110,7 +139,7 @@ class generator:
         return ff
     def __1__(self,tipo,bits:bytes):
         if tipo==0:
-            return (~int.from_bytes(bits,signed=True)).to_bytes(len(bits),signed=True).decode()
+            return (int.from_bytes(bits,signed=True)).to_bytes(len(bits),signed=True).decode()
         if tipo==255:
             vals=[]
             fx=iter(bits)
@@ -131,6 +160,11 @@ class generator:
                 rawdata=bytes([next(fx) for nada in range(size2)])
                 vals.append(self.__1__(tipo,rawdata))
             return layout(*vals)
+        if tipo==253:
+            temp=__mems__(len(bits))
+            for i,mem in enumerate(bits):
+                temp[i]=int(mem)
+            return temp
         if tipo==6:
             return bits
         if tipo==1:

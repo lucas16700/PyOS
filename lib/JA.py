@@ -713,23 +713,23 @@ class boot:
 
 #     teste.update()
 
-if __name__ == "__main__":
-    for key in corpo_base["body"]:
-        elements[key]=getattr(UI,corpo_base["body"][key]["type"])(corpo_base["body"][key]["value"],corpo_base["body"][key]["atrr"])
-        elements[key].update()
-    print(elements)
-    pygame.init()
-    pygame.font.init()
-    tela=pygame.display.set_mode((800,600))
-    while True :
-        for event in pygame.event.get():
-            if pygame.QUIT==event.type:
-                exit(pygame.quit())
-        tela.fill(0) 
-        for key in corpo_base["body"]:
-            elements[key].update()
-            elements[key].draw(tela,(300,260))
+# if __name__ == "__main__":
+#     for key in corpo_base["body"]:
+#         elements[key]=getattr(UI,corpo_base["body"][key]["type"])(corpo_base["body"][key]["value"],corpo_base["body"][key]["atrr"])
+#         elements[key].update()
+#     print(elements)
+#     pygame.init()
+#     pygame.font.init()
+#     tela=pygame.display.set_mode((800,600))
+#     while True :
+#         for event in pygame.event.get():
+#             if pygame.QUIT==event.type:
+#                 exit(pygame.quit())
+#         tela.fill(0) 
+#         for key in corpo_base["body"]:
+#             elements[key].update()
+#             elements[key].draw(tela,(300,260))
         
         
-        # print(elements["butao"].style["border radius"],ax)
-        pygame.display.flip()
+#         # print(elements["butao"].style["border radius"],ax)
+#         pygame.display.flip()

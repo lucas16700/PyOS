@@ -22,16 +22,30 @@ ecall
 
 .section .data
 msgxx:
-    .string "Digite um numero (0-9):"
+    .string "mimime um numero (0-9):"
 
-input_buf: .byte 0 ; Buffer para input (1 byte)
+input_buf: 
+    .byte 0, 0 ; Buffer para input (1 byte)
+result_buf: 
+    .byte 0
+    .byte 0
 
 .section .text
 ; Converte input ASCII para número (ex.: '5' = 53 - 48 = 5)
+la a1, input_buf
 lb a0, 0(a1)      ; Carrega byte lido
 addi a0, a0, -48  ; ASCII '0' = 48, subtrai para número
-li a1, 10         ; Soma 10
+li a1, 15         ; Soma 10
 add a0, a0, a1
+div t0, a0, 10
+mul t2, t0, 10
+sub t1, a0, t2
+la a2, result_buf
+addi t0, t0, 48
+addi t1, t1, 48
+sb t0, 0(a2)
+sb t1, 1(a2)
+
 
 .section .rodata
 msg_prefix: .string "Resultado: " ; Prefixo da mensagem
@@ -45,8 +59,9 @@ li a0, 1          ; fd=1 (stdout)
 li a7, 64         ; write
 ecall
 
-la a1, input_buf ; Endereço do prefixo
-li a2, 1         ; Tamanho prefixo
+la a1, result_buf ; Endereço do prefixo
+li a2, 2         ; Tamanho prefixo
+li a0, 1          ; fd=1 (stdout)
 li a7, 64         ; write
 ecall
 

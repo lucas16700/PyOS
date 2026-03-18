@@ -8,7 +8,7 @@ _start:
     ; write(1, msg, 14)  ; stdout, mensagem, tamanho
     li   a0, 1           ; a0 = fd = 1 (stdout)
     la   a1, msg         ; a1 = endereço da string
-    li   a2, 14          ; a2 = comprimento da string (incluindo \n)
+    li   a2, 15          ; a2 = comprimento da string (incluindo \n)
     li   a7, 64          ; a7 = número da syscall write
     ecall                ; executa a syscall
 
