@@ -10,7 +10,6 @@ import pygame
 from numba import jit,njit
 import serializador,asyncio
 from pympler import asizeof
-from gfx.surfs import surf
 import asyncio
 import numpy as np
 from sereal import __mems__
@@ -42,37 +41,37 @@ class dinamica:
         return int(pygame.get_init())
 class speed:
     @njit(cache=True)
-    def add(a:int,b:int):
+    def add(a:int|float,b:int|float):
         c=a+b
         return c
     
     @njit(cache=True)
-    def sub(a:int,b:int):
+    def sub(a:int|float,b:int|float):
         c=a-b
         return c
     
     @njit(cache=True)
-    def div(a:int,b:int):
+    def div(a:int|float,b:int|float):
         c=a/b
         return c
     
     @njit(cache=True)
-    def mul(a:int,b:int):
+    def mul(a:int|float,b:int|float):
         c=a*b
         return c
     
     @njit(cache=True)
-    def until(a:int,b:int):
+    def until(a:int|float,b:int|float):
         c=a%b
         return c
     
     @njit(cache=True)
-    def sqr(a:int,b:int):
+    def sqr(a:int|float,b:int|float):
         c=a**b
         return c
     
     @njit(cache=True)
-    def root(a:int,b:int):
+    def root(a:int|float,b:int|float):
         c=a**(1/b)
         return c
 
@@ -838,8 +837,11 @@ class pyos64:
     INSTRUCTION_PATTERNS = {
         #basicas
         "mov": ["out","in","in"],
+        "mmov": ["out","in","in"],
         "pss": [],
         
+        "store":["in","in"],
+        "load":["out","in"],
         #geradores
 
         "randint": ["out", "in", "in"],
@@ -848,9 +850,20 @@ class pyos64:
         #prepara saltos
 
         "point": ["in"],
-        "pycall": ["in" for a in range(16)],
+        "pycall": ["in" for a in range(64)],
+        "callpanic":["in","out"],
         #sys
-        "halt":[]
+        "halt":[],
+        "go":["out","in"],
+
+        #funções
+        "call":["in"],
+        "ret":[],
+
+        "push":["in"],
+        "pop":["out"],
+        
+        "extern":["in" for a in range(128)]
     }
     __inst_arr_need__=True
     __data_sect_need__=True
@@ -869,6 +882,7 @@ class pyos64:
         self.__events__={}
         self.__async_f__=[]
         self.__x__=1
+        self.__stack__=[]
         self.opened_files={}
 
         self.opened_files[0] = open(0, 'rb', buffering=0)   # stdin
@@ -908,9 +922,11 @@ class pyos64:
     def mov(self,any):
         self.reg[any[0]]=any[1]
         # print(any,"movido foi isso")
-    def movh(self,any):
-        rd,rs1, rs2 =any
-        self.__high__[rs1]=rs2
+    def mmov(self,any):
+        rd1,rd2, label =any
+        self.reg[rd1]=self.__mem__[label:label+8]
+        self.reg[rd2]=self.__mem__[label+8]
+    # def 
     def pss(self,any):
         pass
     # def load_script(self,any):
@@ -959,6 +975,7 @@ class pyos64:
             start=params[1]
             size=params[2]
             bit=[self.__mem__.get(start + i, 0)for i in range(size)]
+            # print(f" bits :{bytes(bit)}")
             self.opened_files[file].write(bytes(bit))
         else:
             print("num chamo certo",any)
@@ -1026,17 +1043,19 @@ class pyos64:
     def root(self,any):
         rd,rs1,rs2= any
         self.reg[rd]=speed.root(rs1,rs2)
+    def push(self, any):
+        self.__stack__.append(any[0])
     def call(self, any):
+        
+        self.reg[any[0]]=self.__stack__.pop()
         # push posição atual
         # print("aqui")
-        label=any
-        self.reg[62]+=1
-        self.reg[63-self.reg[62]]=self.__pos__
-        self.__pos__=label
+        label=any[0]
+        self.reg[62]=self.__pos__
+        self.__pos__=label-1
     def ret(self, any=None):
         # print("used")
-        self.__pos__=self.reg[63-self.reg[62]]
-        self.reg[62]-=1
+        self.__pos__=self.reg[62]
         # self.__pos__ = self.__stack__.pop()
         # print("            ",self.pos,"depois")
     
@@ -1054,6 +1073,10 @@ class pyos64:
         # print(any)
         addr, reg = any
         self.__mem__[addr] = reg
+    def xstore(self, any):
+        # print(any)
+        addr, reg = any
+        self.__mem__[addr] = ~reg
     
     def jc(self,any):
         cond,label = any
@@ -1094,61 +1117,7 @@ class solve_py:
         solved=[]
         table=self.iset[op]
         ix=0
-        # for index,ih in enumerate(params):
-        #     if isinstance(ih,list):
-        #         while "%hi" in ih:
-        #             if isinstance(ih[1],int):
-        #                 val=int(self.cpu.reg[ih[1]])
-        #             elif isinstance(ih[1],str):
-        #                 val=int(self.cpu.__data__[ih[1]])
-        #                 # try:
-        #                 #     val=int(self.cpu.reg[params[idx+1]])
-        #                 # except:
-        #                 #     val=int(self.cpu.__data__[params[idx+1]])
-        #             sub[index]=val >> 12
-        #             # params.pop(idx+1)
-        #             # print(f"hi {params[idx]}")
-        #         while "%lo" in ih:
-        #             idx=params.index("%lo")
-        #             try:
-        #                 val=int(params[idx+1])
-        #             except:
-        #                 if isinstance(ih[1],int):
-        #                     val=int(self.cpu.reg[ih[1]])
-        #                 elif isinstance(ih[1],str):
-        #                     val=int(self.cpu.__data__[ih[1]])
-        #             sub[index]=val & 0xFFF
-        #             # params.pop(idx+1)
-        #             # print(f"lo {params[idx]}")
         for i,param in enumerate(params):
-            # if isinstance(param,list):
-            #     for ix,subp in enumerate(param):
-            #         # try:
-            #             match table[i+ix]:
-            #                 case "in":
-            #                     try:
-            #                         int(subp)
-            #                         solved.append(int(subp))
-            #                         # print(subp,int(subp))
-            #                         # print("solving with numbers")
-            #                         continue
-            #                     except:
-            #                         solved.append(self.cpu.reg[subp])
-            #                 case "out":
-            #                     solved.append(subp)
-            #                 case "mem":
-            #                     if ix:
-            #                         solved.append(self.cpu.reg[subp])
-            #                     else:
-            #                         solved.append(subp)
-            #                 case "label":
-            #                     # print("label getted",self.cpu.__pointers__)
-            #                     solved.append(self.cpu.__point__[subp])
-            #         # except:
-            #         #     print(f"'{op}' :: has too many args:: {params}")
-            #     # print("continuado")
-            #     continue
-            # print(param)
             match table[i+ix]:
                     
                     case "in":
@@ -1170,17 +1139,6 @@ class solve_py:
                             solved.append(param)
                     case "mem":
                         solved.append(self.cpu.__mem__[param])
-                    # case "label":
-                    #     # print("label getted",param)
-                    #     if isinstance(param,str):
-                    #         solved.append(self.cpu.__labels__[param])
-                    #     elif isinstance(param,int):
-                    #         solved.append(self.cpu.__labels__[self.cpu.reg[param]])
-                    
-            # except:
-            #     print(f"'{op}' :: has too many args:: {params}")
-        # if op=="lb":
-        #     print(f"lb with {solved} :: {params}")
         return solved
 risc_v.__solver__=solve
 pyos64.__solver__=solve_py

@@ -3,7 +3,7 @@ from lexer_pyos import lexar as pyoslx1
 from pyos import __mems__ ,risc_v as rv_core
 from json import loads
 from sereal import generator as  dumper
-
+dumper.max_int=4
 import time
 def medir_tempo(func):
     """Decorator simples pra medir qualquer função"""
@@ -333,6 +333,7 @@ class pyos64:
                 else:
                     mode=False
                     self.__labels__[label]=len(self.__code__)
+                    # print(len(self.__code__))
                 last_label=label
             elif typer=="SYMBOL" and mode:
                 x1=1
@@ -403,10 +404,10 @@ class pyos64:
                         posicao+=1
                         a,tipo=self.tokens[posicao]
                         types[value]=tipo
-                    case ".string":
+                    case ".str":
                         posicao+=1
                         a,value=self.tokens[posicao]
-                        for char in value[1:-2]:
+                        for char in value[1:-1]:
                             self.__memory__[data_pos] = ord(char)
                             data_pos += 1
                         self.__memory__[data_pos] = 0  # null terminator
@@ -537,7 +538,7 @@ class pyos64:
                             hj=dumper([diciona])
                             ff=hj.dump()
                             self.__labels__[last_label]=data_pos
-                            # print(hj.reverts(ff))
+                            print(ff)
                             for bit in ff:
                                 self.__memory__[data_pos]=bit
                                 data_pos+=1
@@ -568,7 +569,11 @@ class pyos64:
                         self.__code__[-1][-1].append(txt)
                     elif tx=="REGISTER":
                         # print(f"register {txt}, {self.n_m[txt]}")
-                        self.__code__[-1][-1].append([1,self.n_m[txt]])
+                        try:
+                            self.__code__[-1][-1].append([1,self.n_m[txt]])
+                        except:
+                            print(self.n_m)
+                            raise
                     elif tx=="STRING":
                         self.__code__[-1][-1].append(txt)
                     elif tx=="SYMMOD":

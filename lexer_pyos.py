@@ -13,13 +13,17 @@ mnemonic_patterns = r'(?i)(' + '|'.join([
     "AND","OR","XOR","NOT"
     #aritimetica binaria
     "SHL","SHR",
+    #memoria
+    "store",
+    "load",
     #branches e jumps
     "point",
-    "loop_p","loop",
+    "loop.p","loop.i",
     "jc","jcdl",
     "go","cgo",
     #system
     "halt",
+    "call",
     "ret",
     "pycall"
 ]) + r')\b'
@@ -37,7 +41,7 @@ lg.add('SYMMOD',r'%(hi|lo)')
 lg.add('LABEL', r':[a-zA-Z_][a-zA-Z0-9_]*:')
 lg.add('SECTION',r'\.(code|data|high)')
 lg.add('DIRECTIVE', 
-r'\.(string|array|zero|space|align|byte|half|word|dword|globl|type|size|ident|file|asciz|ascii|quad|long|short|comm|weak|attribute)')
+r'\.(str|array|zero|space|align|byte|half|word|dword|globl|type|size|ident|file|asciz|ascii|quad|long|short|comm|weak|attribute)')
 lg.add('MOD',r'@(code|data|high)')
 lg.add("DYNATT",r'=')
 lg.add('COMMA', r',')
@@ -48,16 +52,16 @@ lg.add("LBRACE", r"\{")
 lg.add("RBRACE", r"\}")
 lg.add("LBRACKET", r"\[")
 lg.add("RBRACKET", r"\]")
-lg.add('CURRENT_POS', r'\.')
 lg.add('MATH',r'[+\-*/]')
 lg.add('MNEMONIC', mnemonic_patterns)
-lg.add('SYMBOL', r'[a-zA-Z_][a-zA-Z0-9_]*')
+lg.add('SYMBOL', r'[a-zA-Z_][a-zA-Z0-9_\.]*')
+lg.add('CURRENT_POS', r'\.')
 # lg.add('DATAPOS',   r'\.')
 lg.add('NONUSED',r'.([^"\\]|\\.)*')
 
 lexer = lg.build()
-with open("source_code/hello.s")as f:
-    codigo=f.read()
+# with open("source_code/hello.s")as f:
+#     codigo=f.read()
 
 def lexar(lexando,names=False):
     h=identificar(lexando)

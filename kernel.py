@@ -434,6 +434,9 @@ class compilador:
                 # print(f"final memory ({len(self.cpu.__mem__)} Bytes): {len(self.cpu.__mem__)-list(self.cpu.__mem__.values()).count(0)}\npointers:{self.cpu.__point__}\nlabels:{self.cpu.__labels__}")
         # print("final regis by line")
         # print(self.history)
+        with open("memory.bin","wb")as f:
+            for bit in self.cpu.__mem__:
+                f.write(bytes([bit]))
         if save:
             # print(tread.func)
             return self.cpu.__code__,self.cpu.__func__
